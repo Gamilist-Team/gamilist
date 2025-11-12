@@ -22,6 +22,42 @@ Frontend:
 
 Backend:
 
+
+## 📦 1. Prerequisites
+
+Before running the project, install:
+
+- **Node.js** 18+ (20 recommended)
+- **npm**
+- Access to:
+  - A **Postgres** database (Render Postgres)
+  - A **Twitch Developer App** (to access the IGDB API)
+
+---
+
+## 📁 2. Clone & Install
+
+```bash
+git clone <repo-url>
+cd gamilist_code
+npm install
+```
+## You will usually have two terminals running for start and dev:
+
+### Commands
+Purpose
+npm start
+Starts Express backend
+
+npm run dev
+Starts Vite frontend
+
+npm run build
+Builds production bundle
+
+npm run preview
+Serves built frontend
+
 ## Features
 
 ### [Browse and Search Games]
