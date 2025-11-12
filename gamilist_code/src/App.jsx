@@ -4,6 +4,7 @@ import Hero from './components/Hero';
 import Carousel from './components/Carousel';
 import ForumPreview from './components/ForumPreview';
 import { getTrending, getByGenre, getForumPreview } from './database/api';
+import './App.css'
 
 export default function App() {
   const [trending, setTrending] = useState([]);
