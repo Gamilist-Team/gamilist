@@ -1,23 +1,20 @@
-// “DB” facade. Later: replace these with real fetch() calls.
-// Example: export async function getTrending(){ return fetch('/api/trending').then(r=>r.json()) }
+const API = import.meta.env.VITE_API_URL;
 
-import { games, threads } from './seed';
-
-// pretend latency
-const wait = (ms=200) => new Promise(r => setTimeout(r, ms));
-
-export async function getTrending() {
-  await wait();
-  // naive sort by rating as “trending”
-  return [...games].sort((a,b) => b.rating - a.rating).slice(0, 8);
+async function j(url) {
+  const r = await fetch(url);
+  if (!r.ok) {
+    const text = await r.text();
+    throw new Error(`${r.status} ${url} – ${text.slice(0,120)}`);
+  }
+  return r.json();
 }
 
-export async function getByGenre(genre) {
-  await wait();
-  return games.filter(g => g.genres.includes(genre)).slice(0, 8);
-}
+// IGDB-backed data
+export const getTrending   = () => j(`${API}/api/igdb/trending`);
+export const getByGenre    = (name) => j(`${API}/api/igdb/genre/${encodeURIComponent(name)}`);
 
-export async function getForumPreview() {
-  await wait();
-  return threads;
-}
+// Forum preview (Postgres)
+export const getForumPreview = () => j(`${API}/api/threads`);
+
+// Optional: single game
+// export const getGameDetails = (id) => j(`${API}/api/igdb/games/${id}`);

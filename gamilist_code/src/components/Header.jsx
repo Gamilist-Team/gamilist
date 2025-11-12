@@ -2,7 +2,7 @@ export default function Header() {
   return (
     <header className="hdr">
       <div className="container hdr-row">
-        <div className="brand">GameHub</div>
+        <div className="brand">Gamilist</div>
         <nav className="nav">
           <a href="#">Games</a>
           <a href="#">Community</a>

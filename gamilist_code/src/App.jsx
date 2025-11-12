@@ -20,29 +20,37 @@ export default function App() {
       ]);
       setTrending(t);
       setAdventure(a);
-      setThreads(f);
+      setThreads(f.slice(0, 6));
     })();
   }, []);
+
+  const heroBg =
+    trending[0]?.hero ||
+    '/covers/silksong-hero.jpg'; // keep this file in public/ to be safe
+
+  const heroTitle = trending[0]?.title || 'Hollow Knight: Silksong';
 
   return (
     <>
       <Header />
-      <div className="container">
-        <Hero
-          title="Hollow Knight: Silksong"
-          tagline="Track, discuss, and discover your next favorite game."
-          background="/covers/silksong-hero.jpg"
-          onPrimary={() => alert('Added to your list!')}
-        />
-      </div>
-
-      <div className="container grid">
-        <div>
-          <Carousel title="Trending" games={trending} />
-          <Carousel title="Adventure" games={adventure} />
+      <main className="page">
+        <div className="container">
+          <Hero
+            title={heroTitle}
+            tagline="Track, discuss, and discover your next favorite game."
+            background={heroBg}
+            onPrimary={() => alert('Added to your list!')}
+          />
         </div>
-        <ForumPreview threads={threads} />
-      </div>
+
+        <div className="container grid">
+          <div>
+            <Carousel title="Recommended Based on Your List" games={trending} />
+            <Carousel title="Trending" games={adventure} />
+          </div>
+          <ForumPreview threads={threads} />
+        </div>
+      </main>
     </>
   );
 }
