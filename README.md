@@ -28,7 +28,7 @@ Backend:
 
 Discover games by searching or browsing through different platforms (Console, PC, Mobile) and genres
 
-[homepage](<gamilist home.gif>)
+![alt text](<gamilist home.gif>)
 
 ### [Game Lists and Tracking]
 
