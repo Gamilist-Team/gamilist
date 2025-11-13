@@ -45,7 +45,6 @@ npm install
 ## You will usually have two terminals running for start and dev:
 
 ### Commands
-Purpose
 npm start
 Starts Express backend
 
