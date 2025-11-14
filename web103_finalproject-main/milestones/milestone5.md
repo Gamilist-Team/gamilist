@@ -80,7 +80,7 @@ Complete the checklist below detailing each baseline, custom, and stretch featur
 
 ## Final Demo GIF
 
-🔗 [Here's a GIF walkthrough of the final project]![alt text](/gamilist.gif)
+🔗 [Here's a GIF walkthrough of the final project](![alt text](<gamilist forU.gif>))
 
 ## Reflection
 
