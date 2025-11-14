@@ -1,12 +1,22 @@
+import { useNavigate } from 'react-router-dom';
+
 export default function GameCard({ game }) {
+  const navigate = useNavigate();
+
   return (
-    <article className="card" tabIndex={0} aria-label={game.title}>
+    <article 
+      className="card" 
+      tabIndex={0} 
+      aria-label={game.title}
+      onClick={() => navigate(`/games/${game.id}`)}
+      style={{ cursor: 'pointer' }}
+    >
       <div className="thumb">
         <img src={game.cover} alt={game.title} />
       </div>
       <div className="meta">
         <div className="title">{game.title}</div>
-        <div className="sub">★ {game.rating}</div>
+        <div className="sub">★ {game.rating ? Math.round(game.rating) : 'N/A'}</div>
       </div>
     </article>
   );

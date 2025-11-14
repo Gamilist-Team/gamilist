@@ -119,6 +119,24 @@ export async function getByGenreName(name) {
 }
 
 
+// ---------- SEARCH GAMES ----------
+export async function searchGames(query, limit = 50) {
+  if (!query || query.trim().length === 0) {
+    // If no query, return popular games
+    return getTrendingGames(limit);
+  }
+  
+  const games = await igdb(
+    `search "${query}";
+     fields id,name,cover.image_id,artworks.image_id,total_rating,total_rating_count;
+     where cover != null;
+     limit ${limit};`,
+    "games"
+  );
+  
+  return games.map(toCard);
+}
+
 // ---------- SINGLE GAME ----------
 export async function getGameById(id) {
   const rows = await igdb(

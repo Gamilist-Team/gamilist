@@ -1,4 +1,8 @@
-export default function Hero({ title, tagline, background, onPrimary }) {
+import { useNavigate } from 'react-router-dom';
+
+export default function Hero({ title, tagline, background, onPrimary, gameId }) {
+  const navigate = useNavigate();
+
   return (
     <section className="hero" aria-label="Featured game">
       {background && <img className="hero-bg" src={background} alt="" aria-hidden="true" />}
@@ -9,7 +13,11 @@ export default function Hero({ title, tagline, background, onPrimary }) {
         {tagline && <p className="muted">{tagline}</p>}
         <div className="actions">
           <button className="btn primary" onClick={onPrimary}>Track Game</button>
-          <button className="btn ghost">Details</button>
+          {gameId && (
+            <button className="btn ghost" onClick={() => navigate(`/games/${gameId}`)}>
+              Details
+            </button>
+          )}
         </div>
       </div>
     </section>

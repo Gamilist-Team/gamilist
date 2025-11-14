@@ -21,8 +21,10 @@ services:
     plan: free
     region: ohio
     buildCommand: npm ci
-    startCommand: node api/server.js
+    startCommand: node -r dotenv/config api/server.js
     envVars:
+      - key: PORT
+        value: 10000
       - key: DATABASE_URL
         fromDatabase:
           name: gamilist-db
@@ -31,6 +33,8 @@ services:
         sync: false   # add value in Render dashboard
       - key: TWITCH_CLIENT_SECRET
         sync: false   # add value in Render dashboard
+      - key: SESSION_SECRET
+        generateValue: true   # Render will auto-generate a secure secret
 databases:
   - name: gamilist-db
     plan: free

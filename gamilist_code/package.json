@@ -12,9 +12,12 @@
     "start": "nodemon --exec node -r dotenv/config api/server.js"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "express-session": "^1.18.2",
     "nodemon": "^3.1.11",
     "pg": "^8.16.3",
     "react": "^19.2.0",
