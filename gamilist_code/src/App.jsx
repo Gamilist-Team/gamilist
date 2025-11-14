@@ -4,7 +4,7 @@ import Hero from './components/Hero';
 import Carousel from './components/Carousel';
 import ForumPreview from './components/ForumPreview';
 import { getTrending, getByGenre, getForumPreview } from './database/api';
-import './App.css'
+import './App.css';
 
 export default function App() {
   const [trending, setTrending] = useState([]);
@@ -25,29 +25,32 @@ export default function App() {
   }, []);
 
   const heroBg =
-    trending[0]?.hero ||
-    '/covers/silksong-hero.jpg'; // keep this file in public/ to be safe
+    trending[0]?.hero || '/covers/silksong-hero.jpg';
 
   const heroTitle = trending[0]?.title || 'Hollow Knight: Silksong';
 
   return (
     <>
       <Header />
-      <main className="page">
-        <div className="container">
-          <Hero
-            title={heroTitle}
-            tagline="Track, discuss, and discover your next favorite game."
-            background={heroBg}
-            onPrimary={() => alert('Added to your list!')}
-          />
-        </div>
 
-        <div className="container grid">
+      {/* container + page together so ALL main content shares the same width */}
+      <main className="container page">
+        {/* hero sits at top of page grid */}
+        <Hero
+          title={heroTitle}
+          tagline="Track, discuss, and discover your next favorite game."
+          background={heroBg}
+          onPrimary={() => alert('Added to your list!')}
+        />
+
+        {/* carousels + sidebar in 2-column grid, still inside same container */}
+        <div className="grid">
           <div>
             <Carousel title="Recommended Based on Your List" games={trending} />
             <Carousel title="Trending" games={adventure} />
           </div>
+
+          {/* make sure ForumPreview's root has className="sidebar" inside it */}
           <ForumPreview threads={threads} />
         </div>
       </main>
