@@ -76,7 +76,7 @@ Organize games into custom lists: "Completed", "Playing", and "Plan to Play"
 
 Rate games on a scale and write detailed reviews to share your experience with the community
 
-[gif goes here]
+![alt text](<gamilist rate.gif>)
 
 ### [Personalized Recommendations]
 
@@ -94,13 +94,13 @@ Discuss games, share tips, and connect with other gamers through topic-based for
 
 Earn trophies and unlock achievements by completing milestones like finishing games, writing reviews, or reaching rating goals
 
-[gif goes here]
+![alt text](<gamilist trophy.gif>)
 
 ### [User Profile and Gaming Stats]
 
 Showcase your gaming identity with a profile displaying your stats, favorite games, earned trophies, and gaming history
 
-[gif goes here]
+![alt text](<gamilist profile.gif>)
 
 ## Installation Instructions
 

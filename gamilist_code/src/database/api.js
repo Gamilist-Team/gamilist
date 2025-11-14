@@ -54,3 +54,26 @@ export const removeGameFromMyList = (gameId) => request(`${API}/api/my/games/${g
 
 // ========== FORUM API ==========
 export const getForumPreview = () => request(`${API}/api/threads`);
+
+// ========== REVIEWS API ==========
+export const getGameReviews = (gameId) => request(`${API}/api/games/${gameId}/reviews`);
+
+export const createReview = (gameId, data) => request(`${API}/api/games/${gameId}/reviews`, {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
+export const deleteReview = (gameId) => request(`${API}/api/games/${gameId}/reviews`, {
+  method: 'DELETE'
+});
+
+export const markReviewHelpful = (reviewId) => request(`${API}/api/reviews/${reviewId}/helpful`, {
+  method: 'POST'
+});
+
+// ========== ACHIEVEMENTS API ==========
+export const getAllAchievements = () => request(`${API}/api/achievements`);
+
+export const getMyAchievements = () => request(`${API}/api/my/achievements`);
+
+export const getUserAchievements = (userId) => request(`${API}/api/users/${userId}/achievements`);

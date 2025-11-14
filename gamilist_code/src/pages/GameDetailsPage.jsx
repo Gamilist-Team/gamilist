@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getGameDetails, addGameToMyList } from '../database/api';
+import ReviewSection from '../components/ReviewSection';
 
 export default function GameDetailsPage() {
   const { id } = useParams();
@@ -9,8 +10,6 @@ export default function GameDetailsPage() {
   const navigate = useNavigate();
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [rating, setRating] = useState('');
-  const [notes, setNotes] = useState('');
   const [selectedStatus, setSelectedStatus] = useState(null);
 
   useEffect(() => {
@@ -36,19 +35,15 @@ export default function GameDetailsPage() {
     }
 
     try {
-      // First, we need to make sure the game exists in our database
-      // For now, we'll use the IGDB ID directly
       await addGameToMyList({
         game_id: parseInt(id),
-        status,
-        rating: rating ? parseFloat(rating) : null,
-        notes: notes || null
+        status
       });
       setSelectedStatus(status);
-      alert(`Added to ${status.replace('_', ' ')} list!`);
+      alert(`✓ Added to ${status.replace(/_/g, ' ')} list!`);
     } catch (error) {
       console.error('Failed to add to list:', error);
-      alert('Failed to add game to list. Make sure the game exists in the database.');
+      alert('Failed to add game to list.');
     }
   };
 
@@ -128,51 +123,6 @@ export default function GameDetailsPage() {
               <div style={{ marginTop: '2rem' }}>
                 <h3 style={{ marginBottom: '1rem' }}>Add to Your List</h3>
                 
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                    Your Rating (0-10)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="10"
-                    step="0.5"
-                    value={rating}
-                    onChange={(e) => setRating(e.target.value)}
-                    placeholder="Optional"
-                    style={{
-                      padding: '0.5rem',
-                      borderRadius: '4px',
-                      border: '1px solid #2f2f3a',
-                      background: 'var(--bg)',
-                      color: 'var(--text)',
-                      width: '200px'
-                    }}
-                  />
-                </div>
-
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                    Notes
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Optional notes..."
-                    style={{
-                      padding: '0.5rem',
-                      borderRadius: '4px',
-                      border: '1px solid #2f2f3a',
-                      background: 'var(--bg)',
-                      color: 'var(--text)',
-                      width: '100%',
-                      minHeight: '80px',
-                      fontFamily: 'inherit',
-                      resize: 'vertical'
-                    }}
-                  />
-                </div>
-
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                   <button 
                     className="btn primary" 
@@ -218,6 +168,11 @@ export default function GameDetailsPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="panel" style={{ marginTop: '2rem' }}>
+          <ReviewSection gameId={id} />
         </div>
       </div>
     </main>

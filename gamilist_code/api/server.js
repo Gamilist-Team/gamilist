@@ -335,6 +335,10 @@ app.post('/api/my/games', requireAuth, async (req, res) => {
        RETURNING *`,
       [req.session.userId, game_id, status || 'plan_to_play', rating, notes]
     );
+    
+    // Check and award achievements
+    await checkAndAwardAchievements(req.session.userId);
+    
     res.json(rows[0]);
   } catch (e) {
     console.error('Failed to add game:', e);
@@ -381,6 +385,9 @@ app.patch('/api/my/games/:gameId', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Game not in list' });
     }
     
+    // Check and award achievements
+    await checkAndAwardAchievements(req.session.userId);
+    
     res.json(rows[0]);
   } catch (e) {
     console.error('Failed to update game:', e);
@@ -406,6 +413,183 @@ app.delete('/api/my/games/:gameId', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to remove game' });
   }
 });
+
+// ========== REVIEWS ROUTES ==========
+
+// Get reviews for a game
+app.get('/api/games/:gameId/reviews', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT r.*, u.username, u.avatar_url
+       FROM reviews r
+       JOIN users u ON r.user_id = u.id
+       WHERE r.game_id = $1
+       ORDER BY r.created_at DESC`,
+      [req.params.gameId]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
+// Create or update a review
+app.post('/api/games/:gameId/reviews', requireAuth, async (req, res) => {
+  try {
+    const { rating, review_text } = req.body;
+    
+    if (!rating || !review_text) {
+      return res.status(400).json({ error: 'Rating and review text required' });
+    }
+    
+    const { rows } = await pool.query(
+      `INSERT INTO reviews (user_id, game_id, rating, review_text, updated_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (user_id, game_id)
+       DO UPDATE SET rating = $3, review_text = $4, updated_at = now()
+       RETURNING *`,
+      [req.session.userId, req.params.gameId, rating, review_text]
+    );
+    
+    // Check and award achievements
+    await checkAndAwardAchievements(req.session.userId);
+    
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to create review:', e);
+    res.status(500).json({ error: 'Failed to create review' });
+  }
+});
+
+// Delete a review
+app.delete('/api/games/:gameId/reviews', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'DELETE FROM reviews WHERE user_id = $1 AND game_id = $2 RETURNING *',
+      [req.session.userId, req.params.gameId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+    
+    res.json({ ok: true, deleted: rows[0] });
+  } catch (e) {
+    console.error('Failed to delete review:', e);
+    res.status(500).json({ error: 'Failed to delete review' });
+  }
+});
+
+// Mark review as helpful
+app.post('/api/reviews/:reviewId/helpful', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'UPDATE reviews SET helpful_count = helpful_count + 1 WHERE id = $1 RETURNING *',
+      [req.params.reviewId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+    
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to mark helpful:', e);
+    res.status(500).json({ error: 'Failed to mark helpful' });
+  }
+});
+
+// ========== ACHIEVEMENTS ROUTES ==========
+
+// Get all achievements
+app.get('/api/achievements', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM achievements ORDER BY category, points');
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch achievements' });
+  }
+});
+
+// Get user's achievements
+app.get('/api/users/:userId/achievements', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.*, ua.unlocked_at
+       FROM achievements a
+       LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = $1
+       ORDER BY 
+         CASE WHEN ua.unlocked_at IS NULL THEN 1 ELSE 0 END,
+         ua.unlocked_at DESC,
+         a.points ASC`,
+      [req.params.userId]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch user achievements' });
+  }
+});
+
+// Get current user's achievements
+app.get('/api/my/achievements', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.*, ua.unlocked_at
+       FROM achievements a
+       LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = $1
+       ORDER BY 
+         CASE WHEN ua.unlocked_at IS NULL THEN 1 ELSE 0 END,
+         ua.unlocked_at DESC,
+         a.points ASC`,
+      [req.session.userId]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch achievements' });
+  }
+});
+
+// Achievement checking function
+async function checkAndAwardAchievements(userId) {
+  try {
+    // Get user stats
+    const stats = await pool.query(
+      `SELECT 
+        (SELECT COUNT(*) FROM user_game_lists WHERE user_id = $1) as games_added,
+        (SELECT COUNT(*) FROM user_game_lists WHERE user_id = $1 AND status = 'completed') as games_completed,
+        (SELECT COUNT(*) FROM reviews WHERE user_id = $1) as reviews_written,
+        (SELECT COUNT(*) FROM user_game_lists WHERE user_id = $1 AND rating IS NOT NULL) as ratings_given,
+        (SELECT COALESCE(SUM(helpful_count), 0) FROM reviews WHERE user_id = $1) as helpful_reviews`,
+      [userId]
+    );
+    
+    const userStats = stats.rows[0];
+    
+    // Get all achievements
+    const achievements = await pool.query('SELECT * FROM achievements');
+    
+    // Check each achievement
+    for (const achievement of achievements.rows) {
+      const statValue = userStats[achievement.requirement_type] || 0;
+      
+      if (statValue >= achievement.requirement_count) {
+        // Award achievement if not already awarded
+        await pool.query(
+          `INSERT INTO user_achievements (user_id, achievement_id)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id, achievement_id) DO NOTHING`,
+          [userId, achievement.id]
+        );
+      }
+    }
+  } catch (e) {
+    console.error('Failed to check achievements:', e);
+  }
+}
 
 // IGDB routes
 // IGDB: Trending list

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getMyGames, removeGameFromMyList, updateGameInMyList } from '../database/api';
+import AchievementsSection from '../components/AchievementsSection';
 
 export default function UserProfilePage() {
   const { user, logout, loading: authLoading } = useAuth();
@@ -55,19 +56,6 @@ export default function UserProfilePage() {
     } catch (error) {
       console.error('Failed to update status:', error);
       alert('Failed to update status');
-    }
-  };
-
-  const handleRatingChange = async (gameId, newRating) => {
-    try {
-      await updateGameInMyList(gameId, { rating: parseFloat(newRating) });
-      // Update local state
-      setGames(games.map(g => 
-        g.game_id === gameId ? { ...g, rating: parseFloat(newRating) } : g
-      ));
-    } catch (error) {
-      console.error('Failed to update rating:', error);
-      alert('Failed to update rating');
     }
   };
 
@@ -234,24 +222,13 @@ export default function UserProfilePage() {
                       <option value="plan_to_play">Plan to Play</option>
                     </select>
 
-                    <input
-                      type="number"
-                      min="0"
-                      max="10"
-                      step="0.5"
-                      value={game.rating || ''}
-                      onChange={(e) => handleRatingChange(game.game_id, e.target.value)}
-                      placeholder="Rate 0-10"
-                      style={{
-                        padding: '0.4rem',
-                        borderRadius: '4px',
-                        border: '1px solid #2f2f3a',
-                        background: 'var(--bg)',
-                        color: 'var(--text)',
-                        fontSize: '0.9rem',
-                        width: '120px'
-                      }}
-                    />
+                    <button 
+                      className="btn"
+                      onClick={() => navigate(`/games/${game.game_id}`)}
+                      style={{ fontSize: '0.9rem', padding: '0.4rem 0.8rem' }}
+                    >
+                      Rate & Review
+                    </button>
 
                     <button 
                       className="btn"
@@ -265,6 +242,12 @@ export default function UserProfilePage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Achievements Section */}
+        <div className="panel" style={{ marginTop: '2rem' }}>
+          <h2 style={{ marginBottom: '1.5rem' }}>🏆 Achievements & Trophies</h2>
+          <AchievementsSection userId={user.id} />
         </div>
       </div>
     </main>
