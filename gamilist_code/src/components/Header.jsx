@@ -16,7 +16,7 @@ export default function Header() {
         <Link to="/" className="brand">Gamilist</Link>
         <nav className="nav">
           <Link to="/">Games</Link>
-          <a href="#">Community</a>
+          <Link to="/forum">Community</Link>
           {user && <Link to="/profile">My Lists</Link>}
         </nav>
         <div className="hdr-actions">

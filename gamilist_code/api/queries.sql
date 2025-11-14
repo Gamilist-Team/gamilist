@@ -1,5 +1,5 @@
 -- api/queries.sql
-DROP TABLE IF EXISTS user_achievements, achievements, reviews, user_game_lists, list_items, user_lists, forum_threads, game_genres, genres, games, users CASCADE;
+DROP TABLE IF EXISTS forum_posts, user_achievements, achievements, reviews, user_game_lists, list_items, user_lists, forum_threads, game_genres, genres, games, users CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -25,7 +25,18 @@ CREATE TABLE forum_threads (
   user_id INT REFERENCES users(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   body TEXT,
-  created_at TIMESTAMP DEFAULT now()
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
+-- Forum posts (comments/replies to threads)
+CREATE TABLE forum_posts (
+  id SERIAL PRIMARY KEY,
+  thread_id INT REFERENCES forum_threads(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
 );
 -- User game lists (simpler structure - one table instead of two)
 CREATE TABLE user_game_lists (
@@ -99,8 +110,20 @@ SELECT 2, g.id, 'plan_to_play', NULL, 'Looks interesting', NULL
 FROM games g WHERE g.title = 'Balatro';
 
 INSERT INTO forum_threads (game_id, user_id, title, body)
-SELECT g.id, 1, 'THIS GAME IS ASS!!', 'I played for 5 min and died too many times…'
-FROM games g WHERE g.title='Hollow Knight: Silksong' LIMIT 1;
+VALUES
+((SELECT id FROM games WHERE title='Hollow Knight: Silksong'), 1, 'THIS GAME IS ASS!!', 'I played for 5 min and died too many times…'),
+((SELECT id FROM games WHERE title='Hollow Knight: Silksong'), 2, 'Best boss fight tips?', 'Having trouble with the mantis lords. Any strategies that worked for you?'),
+((SELECT id FROM games WHERE title='Hades'), 1, 'Amazing soundtrack!', 'The music in this game is absolutely incredible. What''s your favorite track?'),
+((SELECT id FROM games WHERE title='Hades'), 2, 'Best weapons and builds', 'What weapon combinations are you all using? I''m loving the bow with Zeus boons.');
+
+-- Add some forum posts (comments/replies)
+INSERT INTO forum_posts (thread_id, user_id, content)
+VALUES
+(1, 2, 'Git gud! But seriously, this game has a steep learning curve. Keep practicing!'),
+(1, 1, 'Update: Finally beat that boss. The feeling is incredible!'),
+(2, 1, 'Dash timing is key! Wait for their attack patterns and strike between combos.'),
+(3, 2, 'Agreed! The music really enhances the experience. My favorite is the Elysium theme.'),
+(4, 1, 'Try the spear with Artemis crits - super powerful combo!');
 
 -- Add sample achievements
 INSERT INTO achievements (name, description, icon, category, requirement_type, requirement_count, points) VALUES

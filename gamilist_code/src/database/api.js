@@ -53,7 +53,46 @@ export const removeGameFromMyList = (gameId) => request(`${API}/api/my/games/${g
 });
 
 // ========== FORUM API ==========
-export const getForumPreview = () => request(`${API}/api/threads`);
+export const getForumThreads = (gameId) => {
+  const url = gameId 
+    ? `${API}/api/forum/threads?gameId=${gameId}`
+    : `${API}/api/forum/threads`;
+  return request(url);
+};
+
+export const getForumPreview = () => request(`${API}/api/forum/threads`);
+
+export const getThread = (threadId) => request(`${API}/api/forum/threads/${threadId}`);
+
+export const createThread = (data) => request(`${API}/api/forum/threads`, {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
+export const updateThread = (threadId, data) => request(`${API}/api/forum/threads/${threadId}`, {
+  method: 'PATCH',
+  body: JSON.stringify(data)
+});
+
+export const deleteThread = (threadId) => request(`${API}/api/forum/threads/${threadId}`, {
+  method: 'DELETE'
+});
+
+export const getThreadPosts = (threadId) => request(`${API}/api/forum/threads/${threadId}/posts`);
+
+export const createPost = (threadId, data) => request(`${API}/api/forum/threads/${threadId}/posts`, {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
+export const updatePost = (postId, data) => request(`${API}/api/forum/posts/${postId}`, {
+  method: 'PATCH',
+  body: JSON.stringify(data)
+});
+
+export const deletePost = (postId) => request(`${API}/api/forum/posts/${postId}`, {
+  method: 'DELETE'
+});
 
 // ========== REVIEWS API ==========
 export const getGameReviews = (gameId) => request(`${API}/api/games/${gameId}/reviews`);

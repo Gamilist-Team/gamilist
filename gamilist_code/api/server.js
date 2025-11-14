@@ -500,6 +500,290 @@ app.post('/api/reviews/:reviewId/helpful', requireAuth, async (req, res) => {
   }
 });
 
+// ========== FORUM ROUTES ==========
+
+// Get all forum threads
+app.get('/api/forum/threads', async (req, res) => {
+  try {
+    const { gameId } = req.query;
+    let query = `
+      SELECT 
+        ft.*,
+        u.username as author_username,
+        g.title as game_title,
+        g.cover as game_cover,
+        (SELECT COUNT(*) FROM forum_posts WHERE thread_id = ft.id) as post_count
+      FROM forum_threads ft
+      LEFT JOIN users u ON ft.user_id = u.id
+      LEFT JOIN games g ON ft.game_id = g.id
+    `;
+    
+    const params = [];
+    if (gameId) {
+      query += ' WHERE ft.game_id = $1';
+      params.push(gameId);
+    }
+    
+    query += ' ORDER BY ft.created_at DESC';
+    
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
+  } catch (e) {
+    console.error('Failed to fetch threads:', e);
+    res.status(500).json({ error: 'Failed to fetch threads' });
+  }
+});
+
+// Get single thread with details
+app.get('/api/forum/threads/:threadId', async (req, res) => {
+  try {
+    const { threadId } = req.params;
+    
+    const { rows } = await pool.query(`
+      SELECT 
+        ft.*,
+        u.username as author_username,
+        g.title as game_title,
+        g.cover as game_cover
+      FROM forum_threads ft
+      LEFT JOIN users u ON ft.user_id = u.id
+      LEFT JOIN games g ON ft.game_id = g.id
+      WHERE ft.id = $1
+    `, [threadId]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Thread not found' });
+    }
+    
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to fetch thread:', e);
+    res.status(500).json({ error: 'Failed to fetch thread' });
+  }
+});
+
+// Create new thread
+app.post('/api/forum/threads', requireAuth, async (req, res) => {
+  try {
+    const { gameId, title, body } = req.body;
+    const userId = req.session.userId;
+    
+    if (!title || !body) {
+      return res.status(400).json({ error: 'Title and body are required' });
+    }
+    
+    // If gameId is provided, ensure it exists in our database
+    if (gameId) {
+      const { rows: existingGame } = await pool.query(
+        'SELECT id FROM games WHERE id = $1',
+        [gameId]
+      );
+      
+      // If game doesn't exist locally, fetch from IGDB and insert
+      if (existingGame.length === 0) {
+        try {
+          const gameDetails = await getGameById(gameId);
+          if (gameDetails) {
+            await pool.query(
+              'INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+              [gameDetails.id, gameDetails.title, gameDetails.cover, gameDetails.rating]
+            );
+          }
+        } catch (err) {
+          console.error('Failed to fetch game from IGDB:', err);
+          // Continue even if we can't fetch the game - just create thread without game link
+        }
+      }
+    }
+    
+    const { rows } = await pool.query(`
+      INSERT INTO forum_threads (game_id, user_id, title, body)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [gameId || null, userId, title, body]);
+    
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to create thread:', e);
+    res.status(500).json({ error: 'Failed to create thread' });
+  }
+});
+
+// Update thread
+app.patch('/api/forum/threads/:threadId', requireAuth, async (req, res) => {
+  try {
+    const { threadId } = req.params;
+    const { title, body } = req.body;
+    const userId = req.session.userId;
+    
+    // Check if user owns the thread
+    const { rows: ownerCheck } = await pool.query(
+      'SELECT user_id FROM forum_threads WHERE id = $1',
+      [threadId]
+    );
+    
+    if (ownerCheck.length === 0) {
+      return res.status(404).json({ error: 'Thread not found' });
+    }
+    
+    if (ownerCheck[0].user_id !== userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    const { rows } = await pool.query(`
+      UPDATE forum_threads
+      SET title = COALESCE($1, title),
+          body = COALESCE($2, body),
+          updated_at = now()
+      WHERE id = $3
+      RETURNING *
+    `, [title, body, threadId]);
+    
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to update thread:', e);
+    res.status(500).json({ error: 'Failed to update thread' });
+  }
+});
+
+// Delete thread
+app.delete('/api/forum/threads/:threadId', requireAuth, async (req, res) => {
+  try {
+    const { threadId } = req.params;
+    const userId = req.session.userId;
+    
+    // Check if user owns the thread
+    const { rows: ownerCheck } = await pool.query(
+      'SELECT user_id FROM forum_threads WHERE id = $1',
+      [threadId]
+    );
+    
+    if (ownerCheck.length === 0) {
+      return res.status(404).json({ error: 'Thread not found' });
+    }
+    
+    if (ownerCheck[0].user_id !== userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    await pool.query('DELETE FROM forum_threads WHERE id = $1', [threadId]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Failed to delete thread:', e);
+    res.status(500).json({ error: 'Failed to delete thread' });
+  }
+});
+
+// Get posts for a thread
+app.get('/api/forum/threads/:threadId/posts', async (req, res) => {
+  try {
+    const { threadId } = req.params;
+    
+    const { rows } = await pool.query(`
+      SELECT 
+        fp.*,
+        u.username as author_username
+      FROM forum_posts fp
+      LEFT JOIN users u ON fp.user_id = u.id
+      WHERE fp.thread_id = $1
+      ORDER BY fp.created_at ASC
+    `, [threadId]);
+    
+    res.json(rows);
+  } catch (e) {
+    console.error('Failed to fetch posts:', e);
+    res.status(500).json({ error: 'Failed to fetch posts' });
+  }
+});
+
+// Create new post
+app.post('/api/forum/threads/:threadId/posts', requireAuth, async (req, res) => {
+  try {
+    const { threadId } = req.params;
+    const { content } = req.body;
+    const userId = req.session.userId;
+    
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+    
+    const { rows } = await pool.query(`
+      INSERT INTO forum_posts (thread_id, user_id, content)
+      VALUES ($1, $2, $3)
+      RETURNING *
+    `, [threadId, userId, content]);
+    
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to create post:', e);
+    res.status(500).json({ error: 'Failed to create post' });
+  }
+});
+
+// Update post
+app.patch('/api/forum/posts/:postId', requireAuth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { content } = req.body;
+    const userId = req.session.userId;
+    
+    // Check if user owns the post
+    const { rows: ownerCheck } = await pool.query(
+      'SELECT user_id FROM forum_posts WHERE id = $1',
+      [postId]
+    );
+    
+    if (ownerCheck.length === 0) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    
+    if (ownerCheck[0].user_id !== userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    const { rows } = await pool.query(`
+      UPDATE forum_posts
+      SET content = $1,
+          updated_at = now()
+      WHERE id = $2
+      RETURNING *
+    `, [content, postId]);
+    
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to update post:', e);
+    res.status(500).json({ error: 'Failed to update post' });
+  }
+});
+
+// Delete post
+app.delete('/api/forum/posts/:postId', requireAuth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.session.userId;
+    
+    // Check if user owns the post
+    const { rows: ownerCheck } = await pool.query(
+      'SELECT user_id FROM forum_posts WHERE id = $1',
+      [postId]
+    );
+    
+    if (ownerCheck.length === 0) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    
+    if (ownerCheck[0].user_id !== userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    await pool.query('DELETE FROM forum_posts WHERE id = $1', [postId]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Failed to delete post:', e);
+    res.status(500).json({ error: 'Failed to delete post' });
+  }
+});
+
 // ========== ACHIEVEMENTS ROUTES ==========
 
 // Get all achievements

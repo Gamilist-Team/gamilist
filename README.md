@@ -88,7 +88,7 @@ Get smart game recommendations based on your completed games, ratings, and favor
 
 Discuss games, share tips, and connect with other gamers through topic-based forum discussions
 
-[gif goes here]
+![alt text](<gamilist forum.gif>)
 
 ### [Trophy and Achievement System]
 
