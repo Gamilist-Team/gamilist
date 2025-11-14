@@ -249,6 +249,164 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   );
 }
 
+// ========== GAME LISTS ROUTES ==========
+
+// Get user's game list
+app.get('/api/users/:userId/games', async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = `
+      SELECT ugl.*, g.title, g.cover, g.rating as game_rating
+      FROM user_game_lists ugl
+      JOIN games g ON g.id = ugl.game_id
+      WHERE ugl.user_id = $1`;
+    const params = [req.params.userId];
+    
+    if (status) {
+      query += ' AND ugl.status = $2';
+      params.push(status);
+    }
+    
+    query += ' ORDER BY ugl.updated_at DESC';
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch user games' });
+  }
+});
+
+// Get current user's game list (requires auth)
+app.get('/api/my/games', requireAuth, async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = `
+      SELECT ugl.*, g.title, g.cover, g.rating as game_rating
+      FROM user_game_lists ugl
+      JOIN games g ON g.id = ugl.game_id
+      WHERE ugl.user_id = $1`;
+    const params = [req.session.userId];
+    
+    if (status) {
+      query += ' AND ugl.status = $2';
+      params.push(status);
+    }
+    
+    query += ' ORDER BY ugl.updated_at DESC';
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch games' });
+  }
+});
+
+// Add game to current user's list
+app.post('/api/my/games', requireAuth, async (req, res) => {
+  try {
+    const { game_id, status, rating, notes } = req.body;
+    
+    // Check if game exists in database, if not, fetch from IGDB and insert
+    const checkGame = await pool.query('SELECT id FROM games WHERE id = $1', [game_id]);
+    
+    if (checkGame.rows.length === 0) {
+      // Game doesn't exist, fetch from IGDB and insert
+      try {
+        const gameData = await getGameById(game_id);
+        if (gameData) {
+          await pool.query(
+            'INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+            [game_id, gameData.title, gameData.cover, gameData.rating]
+          );
+        } else {
+          return res.status(404).json({ error: 'Game not found in IGDB' });
+        }
+      } catch (igdbError) {
+        console.error('Failed to fetch from IGDB:', igdbError);
+        return res.status(500).json({ error: 'Failed to fetch game data' });
+      }
+    }
+    
+    const { rows } = await pool.query(
+      `INSERT INTO user_game_lists (user_id, game_id, status, rating, notes, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       ON CONFLICT (user_id, game_id) 
+       DO UPDATE SET status = $3, rating = $4, notes = $5, updated_at = now()
+       RETURNING *`,
+      [req.session.userId, game_id, status || 'plan_to_play', rating, notes]
+    );
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to add game:', e);
+    res.status(500).json({ error: 'Failed to add/update game' });
+  }
+});
+
+// Update game status/rating
+app.patch('/api/my/games/:gameId', requireAuth, async (req, res) => {
+  try {
+    const { status, rating, notes } = req.body;
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+    
+    if (status !== undefined) {
+      updates.push(`status = $${paramIndex++}`);
+      params.push(status);
+    }
+    if (rating !== undefined) {
+      updates.push(`rating = $${paramIndex++}`);
+      params.push(rating);
+    }
+    if (notes !== undefined) {
+      updates.push(`notes = $${paramIndex++}`);
+      params.push(notes);
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    updates.push(`updated_at = now()`);
+    params.push(req.session.userId, req.params.gameId);
+    
+    const { rows } = await pool.query(
+      `UPDATE user_game_lists SET ${updates.join(', ')}
+       WHERE user_id = $${paramIndex} AND game_id = $${paramIndex + 1}
+       RETURNING *`,
+      params
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Game not in list' });
+    }
+    
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Failed to update game:', e);
+    res.status(500).json({ error: 'Failed to update game' });
+  }
+});
+
+// Remove game from list
+app.delete('/api/my/games/:gameId', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'DELETE FROM user_game_lists WHERE user_id = $1 AND game_id = $2 RETURNING *',
+      [req.session.userId, req.params.gameId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Game not in list' });
+    }
+    
+    res.json({ ok: true, deleted: rows[0] });
+  } catch (e) {
+    console.error('Failed to remove game:', e);
+    res.status(500).json({ error: 'Failed to remove game' });
+  }
+});
+
 // IGDB routes
 // IGDB: Trending list
 app.get('/api/igdb/trending', async (_req, res) => {
