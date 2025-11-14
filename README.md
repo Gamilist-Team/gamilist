@@ -22,7 +22,6 @@ Frontend:
 
 Backend:
 
-
 ## 📦 1. Prerequisites
 
 Before running the project, install:
@@ -42,9 +41,11 @@ git clone <repo-url>
 cd gamilist_code
 npm install
 ```
+
 ## You will usually have two terminals running for start and dev:
 
 ### Commands
+
 npm start
 Starts Express backend
 
@@ -67,9 +68,9 @@ Discover games by searching or browsing through different platforms (Console, PC
 
 ### [Game Lists and Tracking]
 
-Organize games into custom lists: "Completed", "Currently Playing", "Wishlist", and "Plan to Play"
+Organize games into custom lists: "Completed", "Playing", and "Plan to Play"
 
-[gif goes here]
+![alt text](<gamilist tracking.gif>)
 
 ### [Rate and Review Games]
 
