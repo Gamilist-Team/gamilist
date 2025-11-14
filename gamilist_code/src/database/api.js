@@ -116,3 +116,6 @@ export const getAllAchievements = () => request(`${API}/api/achievements`);
 export const getMyAchievements = () => request(`${API}/api/my/achievements`);
 
 export const getUserAchievements = (userId) => request(`${API}/api/users/${userId}/achievements`);
+
+// ========== RECOMMENDATIONS API ==========
+export const getMyRecommendations = () => request(`${API}/api/my/recommendations`);

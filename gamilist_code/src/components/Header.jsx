@@ -17,6 +17,7 @@ export default function Header() {
         <nav className="nav">
           <Link to="/">Games</Link>
           <Link to="/forum">Community</Link>
+          {user && <Link to="/recommendations">For You</Link>}
           {user && <Link to="/profile">My Lists</Link>}
         </nav>
         <div className="hdr-actions">

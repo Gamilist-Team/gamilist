@@ -22,7 +22,7 @@ Frontend:
 
 Backend:
 
-## 📦 1. Prerequisites
+## 1. Prerequisites
 
 Before running the project, install:
 
@@ -34,7 +34,7 @@ Before running the project, install:
 
 ---
 
-## 📁 2. Clone & Install
+## 2. Clone & Install
 
 ```bash
 git clone <repo-url>
@@ -82,7 +82,7 @@ Rate games on a scale and write detailed reviews to share your experience with t
 
 Get smart game recommendations based on your completed games, ratings, and favorite genres
 
-[gif goes here]
+![alt text](<gamilist forU.gif>)
 
 ### [Community Forums]
 

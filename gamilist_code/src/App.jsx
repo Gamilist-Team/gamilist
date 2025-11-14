@@ -8,6 +8,7 @@ import GameDetailsPage from './pages/GameDetailsPage';
 import UserProfilePage from './pages/UserProfilePage';
 import ForumPage from './pages/ForumPage';
 import ThreadDetailsPage from './pages/ThreadDetailsPage';
+import RecommendationsPage from './pages/RecommendationsPage';
 import './App.css';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/profile" element={<UserProfilePage />} />
         <Route path="/forum" element={<ForumPage />} />
         <Route path="/forum/:threadId" element={<ThreadDetailsPage />} />
+        <Route path="/recommendations" element={<RecommendationsPage />} />
       </Routes>
     </AuthProvider>
   );

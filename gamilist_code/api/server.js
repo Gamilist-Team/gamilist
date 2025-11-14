@@ -304,26 +304,41 @@ app.get('/api/my/games', requireAuth, async (req, res) => {
 // Add game to current user's list
 app.post('/api/my/games', requireAuth, async (req, res) => {
   try {
-    const { game_id, status, rating, notes } = req.body;
+    const { game_id, gameId, status, rating, notes } = req.body;
+    const actualGameId = game_id || gameId; // Support both formats
+    
+    if (!actualGameId) {
+      return res.status(400).json({ error: 'Game ID is required' });
+    }
     
     // Check if game exists in database, if not, fetch from IGDB and insert
-    const checkGame = await pool.query('SELECT id FROM games WHERE id = $1', [game_id]);
+    const checkGame = await pool.query('SELECT id FROM games WHERE id = $1', [actualGameId]);
     
     if (checkGame.rows.length === 0) {
       // Game doesn't exist, fetch from IGDB and insert
       try {
-        const gameData = await getGameById(game_id);
-        if (gameData) {
-          await pool.query(
-            'INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
-            [game_id, gameData.title, gameData.cover, gameData.rating]
-          );
-        } else {
+        const gameData = await getGameById(actualGameId);
+        if (!gameData) {
+          console.error(`Game ${actualGameId} not found in IGDB`);
           return res.status(404).json({ error: 'Game not found in IGDB' });
         }
+        
+        await pool.query(
+          'INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+          [actualGameId, gameData.title, gameData.cover || null, gameData.rating || null]
+        );
       } catch (igdbError) {
-        console.error('Failed to fetch from IGDB:', igdbError);
-        return res.status(500).json({ error: 'Failed to fetch game data' });
+        console.error('Failed to fetch from IGDB:', igdbError.message || igdbError);
+        // Don't fail - try to create a minimal game record
+        try {
+          await pool.query(
+            'INSERT INTO games (id, title) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+            [actualGameId, `Game ${actualGameId}`]
+          );
+        } catch (fallbackError) {
+          console.error('Failed to create fallback game:', fallbackError);
+          return res.status(500).json({ error: 'Failed to fetch game data' });
+        }
       }
     }
     
@@ -333,7 +348,7 @@ app.post('/api/my/games', requireAuth, async (req, res) => {
        ON CONFLICT (user_id, game_id) 
        DO UPDATE SET status = $3, rating = $4, notes = $5, updated_at = now()
        RETURNING *`,
-      [req.session.userId, game_id, status || 'plan_to_play', rating, notes]
+      [req.session.userId, actualGameId, status || 'plan_to_play', rating, notes]
     );
     
     // Check and award achievements
@@ -438,9 +453,30 @@ app.get('/api/games/:gameId/reviews', async (req, res) => {
 app.post('/api/games/:gameId/reviews', requireAuth, async (req, res) => {
   try {
     const { rating, review_text } = req.body;
+    const gameId = req.params.gameId;
     
     if (!rating || !review_text) {
       return res.status(400).json({ error: 'Rating and review text required' });
+    }
+    
+    // Ensure game exists in database
+    const { rows: existingGame } = await pool.query(
+      'SELECT id FROM games WHERE id = $1',
+      [gameId]
+    );
+    
+    if (existingGame.length === 0) {
+      try {
+        const gameDetails = await getGameById(gameId);
+        if (gameDetails) {
+          await pool.query(
+            'INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+            [gameDetails.id, gameDetails.title, gameDetails.cover, gameDetails.rating]
+          );
+        }
+      } catch (err) {
+        console.error('Failed to fetch game from IGDB:', err);
+      }
     }
     
     const { rows } = await pool.query(
@@ -449,7 +485,7 @@ app.post('/api/games/:gameId/reviews', requireAuth, async (req, res) => {
        ON CONFLICT (user_id, game_id)
        DO UPDATE SET rating = $3, review_text = $4, updated_at = now()
        RETURNING *`,
-      [req.session.userId, req.params.gameId, rating, review_text]
+      [req.session.userId, gameId, rating, review_text]
     );
     
     // Check and award achievements
@@ -781,6 +817,79 @@ app.delete('/api/forum/posts/:postId', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Failed to delete post:', e);
     res.status(500).json({ error: 'Failed to delete post' });
+  }
+});
+
+// ========== RECOMMENDATIONS ROUTES ==========
+
+// Get personalized recommendations for current user
+app.get('/api/my/recommendations', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    
+    // Get user's completed and highly rated games
+    const { rows: userGames } = await pool.query(`
+      SELECT ugl.game_id, g.title, ugl.rating, ugl.status
+      FROM user_game_lists ugl
+      JOIN games g ON ugl.game_id = g.id
+      WHERE ugl.user_id = $1 
+        AND (ugl.status = 'completed' OR ugl.rating >= 8)
+      ORDER BY ugl.rating DESC NULLS LAST
+      LIMIT 10
+    `, [userId]);
+    
+    if (userGames.length === 0) {
+      // If user has no games, return trending games as recommendations
+      const trending = await getTrendingGames();
+      return res.json({
+        recommendations: trending.slice(0, 10),
+        reason: 'Based on trending games'
+      });
+    }
+    
+    // Get genres from user's favorite games
+    const gameIds = userGames.map(g => g.game_id);
+    const { rows: userGenres } = await pool.query(`
+      SELECT g.name, COUNT(*) as count
+      FROM game_genres gg
+      JOIN genres g ON gg.genre_id = g.id
+      WHERE gg.game_id = ANY($1)
+      GROUP BY g.name
+      ORDER BY count DESC
+      LIMIT 3
+    `, [gameIds]);
+    
+    // Get recommendations based on favorite genres
+    let recommendations = [];
+    if (userGenres.length > 0) {
+      const topGenre = userGenres[0].name;
+      recommendations = await getByGenreName(topGenre);
+    } else {
+      // Fallback to trending if no genres found
+      recommendations = await getTrendingGames();
+    }
+    
+    // Filter out games user already has
+    const { rows: existingGames } = await pool.query(
+      'SELECT game_id FROM user_game_lists WHERE user_id = $1',
+      [userId]
+    );
+    const existingGameIds = new Set(existingGames.map(g => g.game_id));
+    
+    const filteredRecommendations = recommendations
+      .filter(game => !existingGameIds.has(game.id))
+      .slice(0, 12);
+    
+    res.json({
+      recommendations: filteredRecommendations,
+      basedOn: {
+        games: userGames.map(g => g.title),
+        genres: userGenres.map(g => g.name)
+      }
+    });
+  } catch (e) {
+    console.error('Failed to get recommendations:', e);
+    res.status(500).json({ error: 'Failed to get recommendations' });
   }
 });
 
