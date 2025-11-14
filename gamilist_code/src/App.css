@@ -3,16 +3,23 @@
   --primary:#9d41ef; --accent:#f24049;
   --radius:12px; --gutter:24px; --max:1200px;
   --card-w:180px;            /* card width used by rows */
+   --hero-ratio: 16 / 5;      /* a bit taller than 16/6 */
+  --hero-min: 420px;     
 }
 
 *{ box-sizing:border-box }
-html,body,#root{ height:100% }
+html{
+  background: var(--bg);      /* so even if something slips, it’s dark not white */
+}
+
 body{
   margin:0;
   background:var(--bg);
   color:var(--text);
   font-family:Inter,system-ui,Arial,sans-serif;
+  overflow-x:hidden;          /* hard stop: no sideways scroll */
 }
+
 a{ color:inherit; text-decoration:none }
 
 
@@ -29,20 +36,18 @@ a{ color:inherit; text-decoration:none }
   max-width: var(--max);
   margin-inline: auto;
   padding-inline: clamp(12px, 3vw, var(--gutter));
-  /* keep page edges breathing on small screens */
 }
 
 .page{
   display: grid;
-  row-gap: 28px;            /* consistent vertical rhythm between hero and grid */
+  row-gap: 24px;
 }
 
-/* two-column layout that never overflows */
 .grid{
   display: grid;
-  grid-template-columns: minmax(0,1fr) 320px; /* minmax prevents breakout */
-  column-gap: 32px;
-  row-gap: 24px;
+  grid-template-columns: minmax(0,1fr) 320px;
+  column-gap: 28px;
+  row-gap: 18px;
 }
 @media (max-width:1040px){
   .grid{ grid-template-columns: 1fr; }
@@ -53,8 +58,9 @@ a{ color:inherit; text-decoration:none }
   position: relative;
   overflow: hidden;
   border-radius: 16px;
-  margin-block: 8px 6px;     /* tighter top, a small gap before the grid */
-  aspect-ratio: 16 / 6;
+  margin-block: 8px 2px;               /* reduce space under hero */
+  aspect-ratio: var(--hero-ratio);
+  min-height: var(--hero-min);
   background: #1b1b22;
   box-shadow: 0 8px 24px rgba(0,0,0,.22); /* gives it lift above the next row */
 }
@@ -62,7 +68,7 @@ a{ color:inherit; text-decoration:none }
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
-  object-position: center center;  /* true centering */
+  object-position: center;  /* true centering */
   opacity: .65;
 }
 .hero-grad{
@@ -71,27 +77,27 @@ a{ color:inherit; text-decoration:none }
 }
 .hero-content{
   position: relative; z-index: 1;
-  max-width: 640px;
-  padding: clamp(16px, 3vw, 32px);
+  max-width: 660px;
+  padding: clamp(16px, 3vw, 36px);
 }
 
 /* -------- horizontal rows (no column breakout) -------- */
-.section{ margin: 10px 0 6px; }
+.section{ margin: 12px 0 8px; }
 .section-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 .section-header h2{ margin:0; font-size:1.1rem; }
 
 .scroller{ position: relative; min-width: 0; }
 .track{
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 4px;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
+  display:flex; gap:12px;
+  overflow-x:auto; overflow-y:hidden;
+  padding-bottom: 6px;
+  scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-color: #2a2a36 transparent;         /* Firefox */
 }
-.track::-webkit-scrollbar{ height: 8px; }
+.track::-webkit-scrollbar{ height:8px; }
 .track::-webkit-scrollbar-thumb{ background:#2a2a36; border-radius:999px; }
+.track::-webkit-scrollbar-track{ background:transparent; }  
 
 .card{
   flex: 0 0 var(--card-w);     /* fixed width; never expands */
@@ -104,7 +110,7 @@ a{ color:inherit; text-decoration:none }
   transition: transform .15s ease, box-shadow .15s ease;
 }
 .card:hover{ transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.25); }
-.thumb{ aspect-ratio: 3 / 4; background:#222; }
+.thumb{ aspect-ratio:3/4; background:#222; }
 .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
 .meta{ padding: 10px 12px; }
 .meta .title{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -119,8 +125,8 @@ a{ color:inherit; text-decoration:none }
   opacity:0; transition:opacity .15s ease;
 }
 .scroller:hover .arrow{ opacity:1; }
-.arrow.left{ left:-6px; }
-.arrow.right{ right:-6px; }
+.arrow.left{ left: 8px; }
+.arrow.right{ right: 8px; }
 
 /* -------- sidebar spacing / sticky offset -------- */
 .sidebar{
@@ -140,3 +146,7 @@ a{ color:inherit; text-decoration:none }
 /* header left as-is; ensure it doesn't overlap sticky elements */
 .hdr{ position: sticky; top: 0; z-index: 50; background: rgba(15,15,18,.8); backdrop-filter: saturate(140%) blur(8px); border-bottom: 1px solid #1f1f25; }
 .hdr-row{ display:flex; align-items:center; gap:16px; height:64px; }
+@media (max-width: 900px){
+  .hero{ aspect-ratio: 16 / 7; min-height: 300px; }
+}
+@media (max-width:1040px){ .grid{ grid-template-columns:1fr } }
