@@ -17,15 +17,15 @@ export default function Header() {
         <nav className="nav">
           <Link to="/">Games</Link>
           <a href="#">Community</a>
-          <a href="#">Lists</a>
+          {user && <Link to="/profile">My Lists</Link>}
         </nav>
         <div className="hdr-actions">
           <button className="btn ghost">Search</button>
           {user ? (
             <>
-              <span style={{ marginRight: '1rem', color: 'var(--muted)' }}>
-                {user.username}
-              </span>
+              <Link to="/profile" style={{ marginRight: '1rem', color: 'var(--primary)', textDecoration: 'none' }}>
+                👤 {user.username}
+              </Link>
               <button className="btn ghost" onClick={handleLogout}>Logout</button>
             </>
           ) : (

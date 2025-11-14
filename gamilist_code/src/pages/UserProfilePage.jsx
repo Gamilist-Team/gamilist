@@ -1,34 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getMyGames, removeGameFromMyList, updateGameInMyList } from '../database/api';
 
 export default function UserProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
+  const loadGames = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getMyGames(filter === 'all' ? null : filter);
+      console.log('Loaded games:', data);
+      setGames(data);
+    } catch (error) {
+      console.error('Failed to load games:', error);
+      // Don't show error alert, just log it
+      setGames([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+    
     if (!user) {
       navigate('/login');
       return;
     }
     loadGames();
-  }, [user, filter]);
-
-  const loadGames = async () => {
-    setLoading(true);
-    try {
-      const data = await getMyGames(filter === 'all' ? null : filter);
-      setGames(data);
-    } catch (error) {
-      console.error('Failed to load games:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, authLoading, loadGames, navigate]);
 
   const handleRemoveGame = async (gameId) => {
     if (!confirm('Remove this game from your list?')) return;
@@ -64,6 +70,16 @@ export default function UserProfilePage() {
       alert('Failed to update rating');
     }
   };
+
+  if (authLoading) {
+    return (
+      <main className="page">
+        <div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>
+          <div>Loading your profile...</div>
+        </div>
+      </main>
+    );
+  }
 
   if (!user) {
     return null;
@@ -184,9 +200,9 @@ export default function UserProfilePage() {
                     <div>
                       <h3 style={{ marginBottom: '0.5rem' }}>{game.title || `Game #${game.game_id}`}</h3>
                       <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-                        <div>Status: <strong>{game.status.replace('_', ' ')}</strong></div>
+                        <div>Status: <strong>{game.status?.replace(/_/g, ' ') || 'Unknown'}</strong></div>
                         {game.rating && <div>Your Rating: <strong>{game.rating}/10</strong></div>}
-                        {game.game_rating && <div>IGDB Rating: <strong>{game.game_rating.toFixed(1)}/10</strong></div>}
+                        {game.game_rating && <div>IGDB Rating: <strong>{parseFloat(game.game_rating).toFixed(1)}/10</strong></div>}
                         {game.notes && (
                           <div style={{ marginTop: '0.5rem' }}>
                             Notes: {game.notes}

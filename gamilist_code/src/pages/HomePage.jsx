@@ -8,6 +8,7 @@ export default function HomePage() {
   const [trending, setTrending] = useState([]);
   const [adventure, setAdventure] = useState([]);
   const [threads, setThreads] = useState([]);
+  const [hoveredGame, setHoveredGame] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -22,24 +23,32 @@ export default function HomePage() {
     })();
   }, []);
 
-  const heroBg =
-    trending[0]?.hero || '/covers/silksong-hero.jpg';
-
-  const heroTitle = trending[0]?.title || 'Hollow Knight: Silksong';
+  // Use hovered game if available, otherwise default to first trending game
+  const displayGame = hoveredGame || trending[0];
+  const heroBg = displayGame?.hero || displayGame?.cover || '/covers/silksong-hero.jpg';
+  const heroTitle = displayGame?.title || 'Hollow Knight: Silksong';
 
   return (
     <main className="container page">
       <Hero
+        game={displayGame}
         title={heroTitle}
         tagline="Track, discuss, and discover your next favorite game."
         background={heroBg}
-        onPrimary={() => alert('Added to your list!')}
       />
 
       <div className="grid">
         <div>
-          <Carousel title="Recommended Based on Your List" games={trending} />
-          <Carousel title="Trending" games={adventure} />
+          <Carousel 
+            title="Recommended Based on Your List" 
+            games={trending}
+            onGameHover={setHoveredGame}
+          />
+          <Carousel 
+            title="Trending" 
+            games={adventure}
+            onGameHover={setHoveredGame}
+          />
         </div>
 
         <ForumPreview threads={threads} />
@@ -47,4 +56,3 @@ export default function HomePage() {
     </main>
   );
 }
-
