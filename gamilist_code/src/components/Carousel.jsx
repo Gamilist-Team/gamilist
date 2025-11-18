@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import GameCard from './GameCard';
 
-export default function Carousel({ title, games = [], viewAllHref = '#' }) {
+export default function Carousel({ title, games = [], viewAllHref = '#', onGameHover }) {
   const trackRef = useRef(null);
   const step = 220;
 
@@ -19,7 +19,7 @@ export default function Carousel({ title, games = [], viewAllHref = '#' }) {
       <div className="scroller">
         <button className="arrow left" aria-label="Scroll left" onClick={() => scrollBy(-1)}>‹</button>
         <div ref={trackRef} className="track" aria-label={`${title} carousel`}>
-          {games.map(g => <GameCard key={g.id} game={g} />)}
+          {games.map(g => <GameCard key={g.id} game={g} onHover={onGameHover} />)}
         </div>
         <button className="arrow right" aria-label="Scroll right" onClick={() => scrollBy(1)}>›</button>
       </div>
