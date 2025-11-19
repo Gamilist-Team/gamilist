@@ -1,35 +1,46 @@
 // api/server.js
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import session from 'express-session';
-import passport from 'passport';
-import { Strategy as GitHubStrategy } from 'passport-github2';
-import bcrypt from 'bcrypt';
-import { Pool } from 'pg';
-import { getTrendingGames, getByGenreName, getGameById } from './igdb.js';
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as GitHubStrategy } from "passport-github2";
+import bcrypt from "bcrypt";
+import { Pool } from "pg";
+import {
+  getTrendingGames,
+  getByGenreName,
+  getGameById,
+  searchGames,
+} from "./igdb.js";
 
 const app = express();
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(express.json());
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'gamilist-dev-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "gamilist-dev-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  })
+);
 
 // PostgreSQL connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  ssl: process.env.DATABASE_URL?.includes("localhost")
+    ? false
+    : { rejectUnauthorized: false },
 });
 
 // Passport configuration
@@ -43,7 +54,7 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
   try {
     const { rows } = await pool.query(
-      'SELECT id, username, email, avatar_url, bio FROM users WHERE id = $1',
+      "SELECT id, username, email, avatar_url, bio FROM users WHERE id = $1",
       [id]
     );
     done(null, rows[0]);
@@ -54,69 +65,79 @@ passport.deserializeUser(async (id, done) => {
 
 // GitHub OAuth Strategy (optional - only if credentials are configured)
 if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-  passport.use(new GitHubStrategy({
-      clientID: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      callbackURL: process.env.GITHUB_CALLBACK_URL || 'http://localhost:10000/api/auth/github/callback'
-    },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        // Check if user exists with this GitHub ID
-        let result = await pool.query('SELECT * FROM users WHERE github_id = $1', [profile.id]);
-        
-        if (result.rows.length > 0) {
-          // User exists, update their info
-          const updateResult = await pool.query(
-            `UPDATE users 
+  passport.use(
+    new GitHubStrategy(
+      {
+        clientID: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        callbackURL:
+          process.env.GITHUB_CALLBACK_URL ||
+          "http://localhost:10000/api/auth/github/callback",
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          // Check if user exists with this GitHub ID
+          let result = await pool.query(
+            "SELECT * FROM users WHERE github_id = $1",
+            [profile.id]
+          );
+
+          if (result.rows.length > 0) {
+            // User exists, update their info
+            const updateResult = await pool.query(
+              `UPDATE users 
              SET username = $1, email = $2, avatar_url = $3, github_username = $4
              WHERE github_id = $5
              RETURNING id, username, email, avatar_url, bio`,
-            [
-              profile.username || profile.displayName,
-              profile.emails?.[0]?.value || null,
-              profile.photos?.[0]?.value || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
-              profile.username,
-              profile.id
-            ]
-          );
-          return done(null, updateResult.rows[0]);
-        } else {
-          // Create new user
-          const insertResult = await pool.query(
-            `INSERT INTO users (username, email, avatar_url, github_id, github_username, password_hash)
+              [
+                profile.username || profile.displayName,
+                profile.emails?.[0]?.value || null,
+                profile.photos?.[0]?.value ||
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
+                profile.username,
+                profile.id,
+              ]
+            );
+            return done(null, updateResult.rows[0]);
+          } else {
+            // Create new user
+            const insertResult = await pool.query(
+              `INSERT INTO users (username, email, avatar_url, github_id, github_username, password_hash)
              VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id, username, email, avatar_url, bio`,
-            [
-              profile.username || profile.displayName,
-              profile.emails?.[0]?.value || null,
-              profile.photos?.[0]?.value || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
-              profile.id,
-              profile.username,
-              ''
-            ]
-          );
-          return done(null, insertResult.rows[0]);
+              [
+                profile.username || profile.displayName,
+                profile.emails?.[0]?.value || null,
+                profile.photos?.[0]?.value ||
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
+                profile.id,
+                profile.username,
+                "",
+              ]
+            );
+            return done(null, insertResult.rows[0]);
+          }
+        } catch (error) {
+          console.error("GitHub OAuth error:", error);
+          return done(error);
         }
-      } catch (error) {
-        console.error('GitHub OAuth error:', error);
-        return done(error);
       }
-    }
-  ));
-  console.log('✅ GitHub OAuth enabled');
+    )
+  );
+  console.log("✅ GitHub OAuth enabled");
 } else {
-  console.log('⚠️  GitHub OAuth disabled (no credentials configured)');
+  console.log("⚠️  GitHub OAuth disabled (no credentials configured)");
 }
 
 // Auth middleware
 const requireAuth = (req, res, next) => {
   if (!req.session.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: "Unauthorized" });
   }
   next();
 };
 
-app.get('/api/threads', async (_req, res) => {
+app.get("/api/threads", async (_req, res) => {
   try {
     const q = `
       SELECT t.id, t.title, t.body, t.created_at,
@@ -130,121 +151,128 @@ app.get('/api/threads', async (_req, res) => {
     const { rows } = await pool.query(q);
     res.json(rows);
   } catch (e) {
-    console.error('/api/threads error:', e);
-    res.status(500).json({ error: 'threads failed' });
+    console.error("/api/threads error:", e);
+    res.status(500).json({ error: "threads failed" });
   }
 });
 
-
 // Routes
-app.get('/', (_req, res) => res.send('✅ Gamilist API is running locally'));
+app.get("/", (_req, res) => res.send("✅ Gamilist API is running locally"));
 
 // ========== AUTHENTICATION ROUTES ==========
 
 // Register new user
-app.post('/api/auth/register', async (req, res) => {
+app.post("/api/auth/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    
+
     if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
+      return res.status(400).json({ error: "Username and password required" });
     }
-    
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
-      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, avatar_url, bio',
+      "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, avatar_url, bio",
       [username, email, hashedPassword]
     );
-    
+
     req.session.userId = rows[0].id;
     res.json({ user: rows[0] });
   } catch (e) {
-    console.error('Register error:', e);
-    if (e.code === '23505') { // Unique violation
-      return res.status(400).json({ error: 'Username or email already exists' });
+    console.error("Register error:", e);
+    if (e.code === "23505") {
+      // Unique violation
+      return res
+        .status(400)
+        .json({ error: "Username or email already exists" });
     }
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: "Registration failed" });
   }
 });
 
 // Login with username/password
-app.post('/api/auth/login', async (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
+      return res.status(400).json({ error: "Username and password required" });
     }
-    
+
     const { rows } = await pool.query(
-      'SELECT * FROM users WHERE username = $1',
+      "SELECT * FROM users WHERE username = $1",
       [username]
     );
-    
+
     if (rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
-    
+
     const user = rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
-    
+
     if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
-    
+
     req.session.userId = user.id;
     delete user.password_hash;
     res.json({ user });
   } catch (e) {
-    console.error('Login error:', e);
-    res.status(500).json({ error: 'Login failed' });
+    console.error("Login error:", e);
+    res.status(500).json({ error: "Login failed" });
   }
 });
 
 // Logout
-app.post('/api/auth/logout', (req, res) => {
+app.post("/api/auth/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({ error: 'Logout failed' });
+      return res.status(500).json({ error: "Logout failed" });
     }
     res.json({ ok: true });
   });
 });
 
 // Get current user
-app.get('/api/auth/me', async (req, res) => {
+app.get("/api/auth/me", async (req, res) => {
   if (!req.session.userId) {
-    return res.status(401).json({ error: 'Not logged in' });
+    return res.status(401).json({ error: "Not logged in" });
   }
-  
+
   try {
     const { rows } = await pool.query(
-      'SELECT id, username, email, avatar_url, bio FROM users WHERE id = $1',
+      "SELECT id, username, email, avatar_url, bio FROM users WHERE id = $1",
       [req.session.userId]
     );
-    
+
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
-    
+
     res.json({ user: rows[0] });
   } catch (e) {
-    console.error('Get user error:', e);
-    res.status(500).json({ error: 'Failed to get user' });
+    console.error("Get user error:", e);
+    res.status(500).json({ error: "Failed to get user" });
   }
 });
 
 // GitHub OAuth routes (only if configured)
 if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-  app.get('/api/auth/github',
-    passport.authenticate('github', { scope: ['user:email'] })
+  app.get(
+    "/api/auth/github",
+    passport.authenticate("github", { scope: ["user:email"] })
   );
 
-  app.get('/api/auth/github/callback',
-    passport.authenticate('github', { failureRedirect: process.env.FRONTEND_URL || 'http://localhost:5173/login' }),
+  app.get(
+    "/api/auth/github/callback",
+    passport.authenticate("github", {
+      failureRedirect:
+        process.env.FRONTEND_URL || "http://localhost:5173/login",
+    }),
     (req, res) => {
       req.session.userId = req.user.id;
-      res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173');
+      res.redirect(process.env.FRONTEND_URL || "http://localhost:5173");
     }
   );
 }
@@ -252,7 +280,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
 // ========== GAME LISTS ROUTES ==========
 
 // Get user's game list
-app.get('/api/users/:userId/games', async (req, res) => {
+app.get("/api/users/:userId/games", async (req, res) => {
   try {
     const { status } = req.query;
     let query = `
@@ -261,23 +289,23 @@ app.get('/api/users/:userId/games', async (req, res) => {
       JOIN games g ON g.id = ugl.game_id
       WHERE ugl.user_id = $1`;
     const params = [req.params.userId];
-    
+
     if (status) {
-      query += ' AND ugl.status = $2';
+      query += " AND ugl.status = $2";
       params.push(status);
     }
-    
-    query += ' ORDER BY ugl.updated_at DESC';
+
+    query += " ORDER BY ugl.updated_at DESC";
     const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Failed to fetch user games' });
+    res.status(500).json({ error: "Failed to fetch user games" });
   }
 });
 
 // Get current user's game list (requires auth)
-app.get('/api/my/games', requireAuth, async (req, res) => {
+app.get("/api/my/games", requireAuth, async (req, res) => {
   try {
     const { status } = req.query;
     let query = `
@@ -286,89 +314,105 @@ app.get('/api/my/games', requireAuth, async (req, res) => {
       JOIN games g ON g.id = ugl.game_id
       WHERE ugl.user_id = $1`;
     const params = [req.session.userId];
-    
+
     if (status) {
-      query += ' AND ugl.status = $2';
+      query += " AND ugl.status = $2";
       params.push(status);
     }
-    
-    query += ' ORDER BY ugl.updated_at DESC';
+
+    query += " ORDER BY ugl.updated_at DESC";
     const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Failed to fetch games' });
+    res.status(500).json({ error: "Failed to fetch games" });
   }
 });
 
 // Add game to current user's list
-app.post('/api/my/games', requireAuth, async (req, res) => {
+app.post("/api/my/games", requireAuth, async (req, res) => {
   try {
     const { game_id, gameId, status, rating, notes } = req.body;
     const actualGameId = game_id || gameId; // Support both formats
-    
+
     if (!actualGameId) {
-      return res.status(400).json({ error: 'Game ID is required' });
+      return res.status(400).json({ error: "Game ID is required" });
     }
-    
+
     // Check if game exists in database, if not, fetch from IGDB and insert
-    const checkGame = await pool.query('SELECT id FROM games WHERE id = $1', [actualGameId]);
-    
+    const checkGame = await pool.query("SELECT id FROM games WHERE id = $1", [
+      actualGameId,
+    ]);
+
     if (checkGame.rows.length === 0) {
       // Game doesn't exist, fetch from IGDB and insert
       try {
         const gameData = await getGameById(actualGameId);
         if (!gameData) {
           console.error(`Game ${actualGameId} not found in IGDB`);
-          return res.status(404).json({ error: 'Game not found in IGDB' });
+          return res.status(404).json({ error: "Game not found in IGDB" });
         }
-        
+
         await pool.query(
-          'INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
-          [actualGameId, gameData.title, gameData.cover || null, gameData.rating || null]
+          "INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+          [
+            actualGameId,
+            gameData.title,
+            gameData.cover || null,
+            gameData.rating || null,
+          ]
         );
       } catch (igdbError) {
-        console.error('Failed to fetch from IGDB:', igdbError.message || igdbError);
+        console.error(
+          "Failed to fetch from IGDB:",
+          igdbError.message || igdbError
+        );
         // Don't fail - try to create a minimal game record
         try {
           await pool.query(
-            'INSERT INTO games (id, title) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+            "INSERT INTO games (id, title) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
             [actualGameId, `Game ${actualGameId}`]
           );
         } catch (fallbackError) {
-          console.error('Failed to create fallback game:', fallbackError);
-          return res.status(500).json({ error: 'Failed to fetch game data' });
+          console.error("Failed to create fallback game:", fallbackError);
+          return res.status(500).json({ error: "Failed to fetch game data" });
         }
       }
     }
-    
+
     const { rows } = await pool.query(
       `INSERT INTO user_game_lists (user_id, game_id, status, rating, notes, updated_at)
        VALUES ($1, $2, $3, $4, $5, now())
        ON CONFLICT (user_id, game_id) 
        DO UPDATE SET status = $3, rating = $4, notes = $5, updated_at = now()
        RETURNING *`,
-      [req.session.userId, actualGameId, status || 'plan_to_play', rating, notes]
+      [
+        req.session.userId,
+        actualGameId,
+        status || "plan_to_play",
+        rating,
+        notes,
+      ]
     );
-    
+
     // Check and award achievements
     await checkAndAwardAchievements(req.session.userId);
-    
+
     res.json(rows[0]);
   } catch (e) {
-    console.error('Failed to add game:', e);
-    res.status(500).json({ error: 'Failed to add/update game' });
+    console.error("Failed to add game:", e);
+    res.status(500).json({ error: "Failed to add/update game" });
   }
 });
 
 // Update game status/rating
-app.patch('/api/my/games/:gameId', requireAuth, async (req, res) => {
+app.patch("/api/my/games/:gameId", requireAuth, async (req, res) => {
   try {
     const { status, rating, notes } = req.body;
     const updates = [];
     const params = [];
     let paramIndex = 1;
-    
+
     if (status !== undefined) {
       updates.push(`status = $${paramIndex++}`);
       params.push(status);
@@ -381,58 +425,58 @@ app.patch('/api/my/games/:gameId', requireAuth, async (req, res) => {
       updates.push(`notes = $${paramIndex++}`);
       params.push(notes);
     }
-    
+
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
+      return res.status(400).json({ error: "No fields to update" });
     }
-    
+
     updates.push(`updated_at = now()`);
     params.push(req.session.userId, req.params.gameId);
-    
+
     const { rows } = await pool.query(
-      `UPDATE user_game_lists SET ${updates.join(', ')}
+      `UPDATE user_game_lists SET ${updates.join(", ")}
        WHERE user_id = $${paramIndex} AND game_id = $${paramIndex + 1}
        RETURNING *`,
       params
     );
-    
+
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Game not in list' });
+      return res.status(404).json({ error: "Game not in list" });
     }
-    
+
     // Check and award achievements
     await checkAndAwardAchievements(req.session.userId);
-    
+
     res.json(rows[0]);
   } catch (e) {
-    console.error('Failed to update game:', e);
-    res.status(500).json({ error: 'Failed to update game' });
+    console.error("Failed to update game:", e);
+    res.status(500).json({ error: "Failed to update game" });
   }
 });
 
 // Remove game from list
-app.delete('/api/my/games/:gameId', requireAuth, async (req, res) => {
+app.delete("/api/my/games/:gameId", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'DELETE FROM user_game_lists WHERE user_id = $1 AND game_id = $2 RETURNING *',
+      "DELETE FROM user_game_lists WHERE user_id = $1 AND game_id = $2 RETURNING *",
       [req.session.userId, req.params.gameId]
     );
-    
+
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Game not in list' });
+      return res.status(404).json({ error: "Game not in list" });
     }
-    
+
     res.json({ ok: true, deleted: rows[0] });
   } catch (e) {
-    console.error('Failed to remove game:', e);
-    res.status(500).json({ error: 'Failed to remove game' });
+    console.error("Failed to remove game:", e);
+    res.status(500).json({ error: "Failed to remove game" });
   }
 });
 
 // ========== REVIEWS ROUTES ==========
 
 // Get reviews for a game
-app.get('/api/games/:gameId/reviews', async (req, res) => {
+app.get("/api/games/:gameId/reviews", async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT r.*, u.username, u.avatar_url
@@ -445,40 +489,45 @@ app.get('/api/games/:gameId/reviews', async (req, res) => {
     res.json(rows);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Failed to fetch reviews' });
+    res.status(500).json({ error: "Failed to fetch reviews" });
   }
 });
 
 // Create or update a review
-app.post('/api/games/:gameId/reviews', requireAuth, async (req, res) => {
+app.post("/api/games/:gameId/reviews", requireAuth, async (req, res) => {
   try {
     const { rating, review_text } = req.body;
     const gameId = req.params.gameId;
-    
+
     if (!rating || !review_text) {
-      return res.status(400).json({ error: 'Rating and review text required' });
+      return res.status(400).json({ error: "Rating and review text required" });
     }
-    
+
     // Ensure game exists in database
     const { rows: existingGame } = await pool.query(
-      'SELECT id FROM games WHERE id = $1',
+      "SELECT id FROM games WHERE id = $1",
       [gameId]
     );
-    
+
     if (existingGame.length === 0) {
       try {
         const gameDetails = await getGameById(gameId);
         if (gameDetails) {
           await pool.query(
-            'INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
-            [gameDetails.id, gameDetails.title, gameDetails.cover, gameDetails.rating]
+            "INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+            [
+              gameDetails.id,
+              gameDetails.title,
+              gameDetails.cover,
+              gameDetails.rating,
+            ]
           );
         }
       } catch (err) {
-        console.error('Failed to fetch game from IGDB:', err);
+        console.error("Failed to fetch game from IGDB:", err);
       }
     }
-    
+
     const { rows } = await pool.query(
       `INSERT INTO reviews (user_id, game_id, rating, review_text, updated_at)
        VALUES ($1, $2, $3, $4, now())
@@ -487,59 +536,59 @@ app.post('/api/games/:gameId/reviews', requireAuth, async (req, res) => {
        RETURNING *`,
       [req.session.userId, gameId, rating, review_text]
     );
-    
+
     // Check and award achievements
     await checkAndAwardAchievements(req.session.userId);
-    
+
     res.json(rows[0]);
   } catch (e) {
-    console.error('Failed to create review:', e);
-    res.status(500).json({ error: 'Failed to create review' });
+    console.error("Failed to create review:", e);
+    res.status(500).json({ error: "Failed to create review" });
   }
 });
 
 // Delete a review
-app.delete('/api/games/:gameId/reviews', requireAuth, async (req, res) => {
+app.delete("/api/games/:gameId/reviews", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'DELETE FROM reviews WHERE user_id = $1 AND game_id = $2 RETURNING *',
+      "DELETE FROM reviews WHERE user_id = $1 AND game_id = $2 RETURNING *",
       [req.session.userId, req.params.gameId]
     );
-    
+
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Review not found' });
+      return res.status(404).json({ error: "Review not found" });
     }
-    
+
     res.json({ ok: true, deleted: rows[0] });
   } catch (e) {
-    console.error('Failed to delete review:', e);
-    res.status(500).json({ error: 'Failed to delete review' });
+    console.error("Failed to delete review:", e);
+    res.status(500).json({ error: "Failed to delete review" });
   }
 });
 
 // Mark review as helpful
-app.post('/api/reviews/:reviewId/helpful', requireAuth, async (req, res) => {
+app.post("/api/reviews/:reviewId/helpful", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'UPDATE reviews SET helpful_count = helpful_count + 1 WHERE id = $1 RETURNING *',
+      "UPDATE reviews SET helpful_count = helpful_count + 1 WHERE id = $1 RETURNING *",
       [req.params.reviewId]
     );
-    
+
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Review not found' });
+      return res.status(404).json({ error: "Review not found" });
     }
-    
+
     res.json(rows[0]);
   } catch (e) {
-    console.error('Failed to mark helpful:', e);
-    res.status(500).json({ error: 'Failed to mark helpful' });
+    console.error("Failed to mark helpful:", e);
+    res.status(500).json({ error: "Failed to mark helpful" });
   }
 });
 
 // ========== FORUM ROUTES ==========
 
 // Get all forum threads
-app.get('/api/forum/threads', async (req, res) => {
+app.get("/api/forum/threads", async (req, res) => {
   try {
     const { gameId } = req.query;
     let query = `
@@ -553,29 +602,30 @@ app.get('/api/forum/threads', async (req, res) => {
       LEFT JOIN users u ON ft.user_id = u.id
       LEFT JOIN games g ON ft.game_id = g.id
     `;
-    
+
     const params = [];
     if (gameId) {
-      query += ' WHERE ft.game_id = $1';
+      query += " WHERE ft.game_id = $1";
       params.push(gameId);
     }
-    
-    query += ' ORDER BY ft.created_at DESC';
-    
+
+    query += " ORDER BY ft.created_at DESC";
+
     const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (e) {
-    console.error('Failed to fetch threads:', e);
-    res.status(500).json({ error: 'Failed to fetch threads' });
+    console.error("Failed to fetch threads:", e);
+    res.status(500).json({ error: "Failed to fetch threads" });
   }
 });
 
 // Get single thread with details
-app.get('/api/forum/threads/:threadId', async (req, res) => {
+app.get("/api/forum/threads/:threadId", async (req, res) => {
   try {
     const { threadId } = req.params;
-    
-    const { rows } = await pool.query(`
+
+    const { rows } = await pool.query(
+      `
       SELECT 
         ft.*,
         u.username as author_username,
@@ -585,137 +635,151 @@ app.get('/api/forum/threads/:threadId', async (req, res) => {
       LEFT JOIN users u ON ft.user_id = u.id
       LEFT JOIN games g ON ft.game_id = g.id
       WHERE ft.id = $1
-    `, [threadId]);
-    
+    `,
+      [threadId]
+    );
+
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Thread not found' });
+      return res.status(404).json({ error: "Thread not found" });
     }
-    
+
     res.json(rows[0]);
   } catch (e) {
-    console.error('Failed to fetch thread:', e);
-    res.status(500).json({ error: 'Failed to fetch thread' });
+    console.error("Failed to fetch thread:", e);
+    res.status(500).json({ error: "Failed to fetch thread" });
   }
 });
 
 // Create new thread
-app.post('/api/forum/threads', requireAuth, async (req, res) => {
+app.post("/api/forum/threads", requireAuth, async (req, res) => {
   try {
     const { gameId, title, body } = req.body;
     const userId = req.session.userId;
-    
+
     if (!title || !body) {
-      return res.status(400).json({ error: 'Title and body are required' });
+      return res.status(400).json({ error: "Title and body are required" });
     }
-    
+
     // If gameId is provided, ensure it exists in our database
     if (gameId) {
       const { rows: existingGame } = await pool.query(
-        'SELECT id FROM games WHERE id = $1',
+        "SELECT id FROM games WHERE id = $1",
         [gameId]
       );
-      
+
       // If game doesn't exist locally, fetch from IGDB and insert
       if (existingGame.length === 0) {
         try {
           const gameDetails = await getGameById(gameId);
           if (gameDetails) {
             await pool.query(
-              'INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
-              [gameDetails.id, gameDetails.title, gameDetails.cover, gameDetails.rating]
+              "INSERT INTO games (id, title, cover, rating) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+              [
+                gameDetails.id,
+                gameDetails.title,
+                gameDetails.cover,
+                gameDetails.rating,
+              ]
             );
           }
         } catch (err) {
-          console.error('Failed to fetch game from IGDB:', err);
+          console.error("Failed to fetch game from IGDB:", err);
           // Continue even if we can't fetch the game - just create thread without game link
         }
       }
     }
-    
-    const { rows } = await pool.query(`
+
+    const { rows } = await pool.query(
+      `
       INSERT INTO forum_threads (game_id, user_id, title, body)
       VALUES ($1, $2, $3, $4)
       RETURNING *
-    `, [gameId || null, userId, title, body]);
-    
+    `,
+      [gameId || null, userId, title, body]
+    );
+
     res.json(rows[0]);
   } catch (e) {
-    console.error('Failed to create thread:', e);
-    res.status(500).json({ error: 'Failed to create thread' });
+    console.error("Failed to create thread:", e);
+    res.status(500).json({ error: "Failed to create thread" });
   }
 });
 
 // Update thread
-app.patch('/api/forum/threads/:threadId', requireAuth, async (req, res) => {
+app.patch("/api/forum/threads/:threadId", requireAuth, async (req, res) => {
   try {
     const { threadId } = req.params;
     const { title, body } = req.body;
     const userId = req.session.userId;
-    
+
     // Check if user owns the thread
     const { rows: ownerCheck } = await pool.query(
-      'SELECT user_id FROM forum_threads WHERE id = $1',
+      "SELECT user_id FROM forum_threads WHERE id = $1",
       [threadId]
     );
-    
+
     if (ownerCheck.length === 0) {
-      return res.status(404).json({ error: 'Thread not found' });
+      return res.status(404).json({ error: "Thread not found" });
     }
-    
+
     if (ownerCheck[0].user_id !== userId) {
-      return res.status(403).json({ error: 'Not authorized' });
+      return res.status(403).json({ error: "Not authorized" });
     }
-    
-    const { rows } = await pool.query(`
+
+    const { rows } = await pool.query(
+      `
       UPDATE forum_threads
       SET title = COALESCE($1, title),
           body = COALESCE($2, body),
           updated_at = now()
       WHERE id = $3
       RETURNING *
-    `, [title, body, threadId]);
-    
+    `,
+      [title, body, threadId]
+    );
+
     res.json(rows[0]);
   } catch (e) {
-    console.error('Failed to update thread:', e);
-    res.status(500).json({ error: 'Failed to update thread' });
+    console.error("Failed to update thread:", e);
+    res.status(500).json({ error: "Failed to update thread" });
   }
 });
 
 // Delete thread
-app.delete('/api/forum/threads/:threadId', requireAuth, async (req, res) => {
+app.delete("/api/forum/threads/:threadId", requireAuth, async (req, res) => {
   try {
     const { threadId } = req.params;
     const userId = req.session.userId;
-    
+
     // Check if user owns the thread
     const { rows: ownerCheck } = await pool.query(
-      'SELECT user_id FROM forum_threads WHERE id = $1',
+      "SELECT user_id FROM forum_threads WHERE id = $1",
       [threadId]
     );
-    
+
     if (ownerCheck.length === 0) {
-      return res.status(404).json({ error: 'Thread not found' });
+      return res.status(404).json({ error: "Thread not found" });
     }
-    
+
     if (ownerCheck[0].user_id !== userId) {
-      return res.status(403).json({ error: 'Not authorized' });
+      return res.status(403).json({ error: "Not authorized" });
     }
-    
-    await pool.query('DELETE FROM forum_threads WHERE id = $1', [threadId]);
+
+    await pool.query("DELETE FROM forum_threads WHERE id = $1", [threadId]);
     res.json({ ok: true });
   } catch (e) {
-    console.error('Failed to delete thread:', e);
-    res.status(500).json({ error: 'Failed to delete thread' });
+    console.error("Failed to delete thread:", e);
+    res.status(500).json({ error: "Failed to delete thread" });
   }
 });
 
 // Get posts for a thread
-app.get('/api/forum/threads/:threadId/posts', async (req, res) => {
+app.get("/api/forum/threads/:threadId/posts", async (req, res) => {
   try {
     const { threadId } = req.params;
-    
-    const { rows } = await pool.query(`
+
+    const { rows } = await pool.query(
+      `
       SELECT 
         fp.*,
         u.username as author_username
@@ -723,112 +787,125 @@ app.get('/api/forum/threads/:threadId/posts', async (req, res) => {
       LEFT JOIN users u ON fp.user_id = u.id
       WHERE fp.thread_id = $1
       ORDER BY fp.created_at ASC
-    `, [threadId]);
-    
+    `,
+      [threadId]
+    );
+
     res.json(rows);
   } catch (e) {
-    console.error('Failed to fetch posts:', e);
-    res.status(500).json({ error: 'Failed to fetch posts' });
+    console.error("Failed to fetch posts:", e);
+    res.status(500).json({ error: "Failed to fetch posts" });
   }
 });
 
 // Create new post
-app.post('/api/forum/threads/:threadId/posts', requireAuth, async (req, res) => {
-  try {
-    const { threadId } = req.params;
-    const { content } = req.body;
-    const userId = req.session.userId;
-    
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
-    }
-    
-    const { rows } = await pool.query(`
+app.post(
+  "/api/forum/threads/:threadId/posts",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { threadId } = req.params;
+      const { content } = req.body;
+      const userId = req.session.userId;
+
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      const { rows } = await pool.query(
+        `
       INSERT INTO forum_posts (thread_id, user_id, content)
       VALUES ($1, $2, $3)
       RETURNING *
-    `, [threadId, userId, content]);
-    
-    res.json(rows[0]);
-  } catch (e) {
-    console.error('Failed to create post:', e);
-    res.status(500).json({ error: 'Failed to create post' });
+    `,
+        [threadId, userId, content]
+      );
+
+      res.json(rows[0]);
+    } catch (e) {
+      console.error("Failed to create post:", e);
+      res.status(500).json({ error: "Failed to create post" });
+    }
   }
-});
+);
 
 // Update post
-app.patch('/api/forum/posts/:postId', requireAuth, async (req, res) => {
+app.patch("/api/forum/posts/:postId", requireAuth, async (req, res) => {
   try {
     const { postId } = req.params;
     const { content } = req.body;
     const userId = req.session.userId;
-    
+
     // Check if user owns the post
     const { rows: ownerCheck } = await pool.query(
-      'SELECT user_id FROM forum_posts WHERE id = $1',
+      "SELECT user_id FROM forum_posts WHERE id = $1",
       [postId]
     );
-    
+
     if (ownerCheck.length === 0) {
-      return res.status(404).json({ error: 'Post not found' });
+      return res.status(404).json({ error: "Post not found" });
     }
-    
+
     if (ownerCheck[0].user_id !== userId) {
-      return res.status(403).json({ error: 'Not authorized' });
+      return res.status(403).json({ error: "Not authorized" });
     }
-    
-    const { rows } = await pool.query(`
+
+    const { rows } = await pool.query(
+      `
       UPDATE forum_posts
       SET content = $1,
           updated_at = now()
       WHERE id = $2
       RETURNING *
-    `, [content, postId]);
-    
+    `,
+      [content, postId]
+    );
+
     res.json(rows[0]);
   } catch (e) {
-    console.error('Failed to update post:', e);
-    res.status(500).json({ error: 'Failed to update post' });
+    console.error("Failed to update post:", e);
+    res.status(500).json({ error: "Failed to update post" });
   }
 });
 
 // Delete post
-app.delete('/api/forum/posts/:postId', requireAuth, async (req, res) => {
+app.delete("/api/forum/posts/:postId", requireAuth, async (req, res) => {
   try {
     const { postId } = req.params;
     const userId = req.session.userId;
-    
+
     // Check if user owns the post
     const { rows: ownerCheck } = await pool.query(
-      'SELECT user_id FROM forum_posts WHERE id = $1',
+      "SELECT user_id FROM forum_posts WHERE id = $1",
       [postId]
     );
-    
+
     if (ownerCheck.length === 0) {
-      return res.status(404).json({ error: 'Post not found' });
+      return res.status(404).json({ error: "Post not found" });
     }
-    
+
     if (ownerCheck[0].user_id !== userId) {
-      return res.status(403).json({ error: 'Not authorized' });
+      return res.status(403).json({ error: "Not authorized" });
     }
-    
-    await pool.query('DELETE FROM forum_posts WHERE id = $1', [postId]);
+
+    await pool.query("DELETE FROM forum_posts WHERE id = $1", [postId]);
     res.json({ ok: true });
   } catch (e) {
-    console.error('Failed to delete post:', e);
-    res.status(500).json({ error: 'Failed to delete post' });
+    console.error("Failed to delete post:", e);
+    res.status(500).json({ error: "Failed to delete post" });
   }
 });
 
 // ========== RECOMMENDATIONS ROUTES ==========
 
 // Get personalized recommendations for current user
-app.get('/api/my/recommendations', requireAuth, async (req, res) => {
+app.get("/api/my/recommendations", requireAuth, async (req, res) => {
   try {
     const userId = req.session.userId;
-    
+
     // Get user's completed and highly rated games
-    const { rows: userGames } = await pool.query(`
+    const { rows: userGames } = await pool.query(
+      `
       SELECT ugl.game_id, g.title, ugl.rating, ugl.status
       FROM user_game_lists ugl
       JOIN games g ON ugl.game_id = g.id
@@ -836,20 +913,23 @@ app.get('/api/my/recommendations', requireAuth, async (req, res) => {
         AND (ugl.status = 'completed' OR ugl.rating >= 8)
       ORDER BY ugl.rating DESC NULLS LAST
       LIMIT 10
-    `, [userId]);
-    
+    `,
+      [userId]
+    );
+
     if (userGames.length === 0) {
       // If user has no games, return trending games as recommendations
       const trending = await getTrendingGames();
       return res.json({
         recommendations: trending.slice(0, 10),
-        reason: 'Based on trending games'
+        reason: "Based on trending games",
       });
     }
-    
+
     // Get genres from user's favorite games
-    const gameIds = userGames.map(g => g.game_id);
-    const { rows: userGenres } = await pool.query(`
+    const gameIds = userGames.map((g) => g.game_id);
+    const { rows: userGenres } = await pool.query(
+      `
       SELECT g.name, COUNT(*) as count
       FROM game_genres gg
       JOIN genres g ON gg.genre_id = g.id
@@ -857,8 +937,10 @@ app.get('/api/my/recommendations', requireAuth, async (req, res) => {
       GROUP BY g.name
       ORDER BY count DESC
       LIMIT 3
-    `, [gameIds]);
-    
+    `,
+      [gameIds]
+    );
+
     // Get recommendations based on favorite genres
     let recommendations = [];
     if (userGenres.length > 0) {
@@ -868,46 +950,387 @@ app.get('/api/my/recommendations', requireAuth, async (req, res) => {
       // Fallback to trending if no genres found
       recommendations = await getTrendingGames();
     }
-    
+
     // Filter out games user already has
     const { rows: existingGames } = await pool.query(
-      'SELECT game_id FROM user_game_lists WHERE user_id = $1',
+      "SELECT game_id FROM user_game_lists WHERE user_id = $1",
       [userId]
     );
-    const existingGameIds = new Set(existingGames.map(g => g.game_id));
-    
+    const existingGameIds = new Set(existingGames.map((g) => g.game_id));
+
     const filteredRecommendations = recommendations
-      .filter(game => !existingGameIds.has(game.id))
+      .filter((game) => !existingGameIds.has(game.id))
       .slice(0, 12);
-    
+
     res.json({
       recommendations: filteredRecommendations,
       basedOn: {
-        games: userGames.map(g => g.title),
-        genres: userGenres.map(g => g.name)
-      }
+        games: userGames.map((g) => g.title),
+        genres: userGenres.map((g) => g.name),
+      },
     });
   } catch (e) {
-    console.error('Failed to get recommendations:', e);
-    res.status(500).json({ error: 'Failed to get recommendations' });
+    console.error("Failed to get recommendations:", e);
+    res.status(500).json({ error: "Failed to get recommendations" });
+  }
+});
+
+// ========== ACTIVITY FEED ROUTES ==========
+
+// Get recent activities (public feed or user-specific)
+app.get("/api/activities", async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+
+    const { rows } = await pool.query(
+      `
+      SELECT 
+        'game_added' as activity_type,
+        u.id as user_id,
+        u.username,
+        ugl.game_id,
+        g.title as game_title,
+        ugl.status as list_status,
+        ugl.created_at
+      FROM user_game_lists ugl
+      JOIN users u ON ugl.user_id = u.id
+      JOIN games g ON ugl.game_id = g.id
+      WHERE ugl.created_at > now() - INTERVAL '7 days'
+      
+      UNION ALL
+      
+      SELECT 
+        'review_posted' as activity_type,
+        u.id as user_id,
+        u.username,
+        r.game_id,
+        g.title as game_title,
+        NULL as list_status,
+        r.created_at
+      FROM reviews r
+      JOIN users u ON r.user_id = u.id
+      JOIN games g ON r.game_id = g.id
+      WHERE r.created_at > now() - INTERVAL '7 days'
+      
+      UNION ALL
+      
+      SELECT 
+        'achievement_unlocked' as activity_type,
+        u.id as user_id,
+        u.username,
+        NULL as game_id,
+        a.name as game_title,
+        NULL as list_status,
+        ua.unlocked_at as created_at
+      FROM user_achievements ua
+      JOIN users u ON ua.user_id = u.id
+      JOIN achievements a ON ua.achievement_id = a.id
+      WHERE ua.unlocked_at > now() - INTERVAL '7 days'
+      
+      ORDER BY created_at DESC
+      LIMIT $1
+    `,
+      [parseInt(limit)]
+    );
+
+    res.json(rows);
+  } catch (e) {
+    console.error("Failed to fetch activities:", e);
+    res.status(500).json({ error: "Failed to fetch activities" });
+  }
+});
+
+// Get activities for a specific user
+app.get("/api/users/:userId/activities", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit = 20 } = req.query;
+
+    const { rows } = await pool.query(
+      `
+      SELECT 
+        'game_added' as activity_type,
+        u.id as user_id,
+        u.username,
+        ugl.game_id,
+        g.title as game_title,
+        ugl.status as list_status,
+        ugl.rating,
+        ugl.created_at
+      FROM user_game_lists ugl
+      JOIN users u ON ugl.user_id = u.id
+      JOIN games g ON ugl.game_id = g.id
+      WHERE ugl.user_id = $1
+      
+      UNION ALL
+      
+      SELECT 
+        'review_posted' as activity_type,
+        u.id as user_id,
+        u.username,
+        r.game_id,
+        g.title as game_title,
+        NULL as list_status,
+        r.rating,
+        r.created_at
+      FROM reviews r
+      JOIN users u ON r.user_id = u.id
+      JOIN games g ON r.game_id = g.id
+      WHERE r.user_id = $1
+      
+      UNION ALL
+      
+      SELECT 
+        'achievement_unlocked' as activity_type,
+        u.id as user_id,
+        u.username,
+        NULL as game_id,
+        a.name as game_title,
+        NULL as list_status,
+        NULL as rating,
+        ua.unlocked_at as created_at
+      FROM user_achievements ua
+      JOIN users u ON ua.user_id = u.id
+      JOIN achievements a ON ua.achievement_id = a.id
+      WHERE ua.user_id = $1
+      
+      ORDER BY created_at DESC
+      LIMIT $2
+    `,
+      [userId, parseInt(limit)]
+    );
+
+    res.json(rows);
+  } catch (e) {
+    console.error("Failed to fetch user activities:", e);
+    res.status(500).json({ error: "Failed to fetch activities" });
+  }
+});
+
+// ========== STATISTICS ROUTES ==========
+
+// Get current user's statistics
+app.get("/api/my/stats", requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+
+    // Get game counts by status
+    const { rows: gameCounts } = await pool.query(
+      `
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM user_game_lists
+      WHERE user_id = $1
+      GROUP BY status
+    `,
+      [userId]
+    );
+
+    // Get total games and average rating
+    const { rows: basicStats } = await pool.query(
+      `
+      SELECT 
+        COUNT(*) as total_games,
+        AVG(rating) as average_rating,
+        COUNT(CASE WHEN rating IS NOT NULL THEN 1 END) as rated_games
+      FROM user_game_lists
+      WHERE user_id = $1
+    `,
+      [userId]
+    );
+
+    // Get review count
+    const { rows: reviewStats } = await pool.query(
+      `
+      SELECT COUNT(*) as reviews_written
+      FROM reviews
+      WHERE user_id = $1
+    `,
+      [userId]
+    );
+
+    // Get achievements count
+    const { rows: achievementStats } = await pool.query(
+      `
+      SELECT COUNT(*) as achievements_unlocked
+      FROM user_achievements
+      WHERE user_id = $1
+    `,
+      [userId]
+    );
+
+    // Get favorite genres
+    const { rows: favoriteGenres } = await pool.query(
+      `
+      SELECT g.name, COUNT(*) as count
+      FROM user_game_lists ugl
+      JOIN game_genres gg ON ugl.game_id = gg.game_id
+      JOIN genres g ON gg.genre_id = g.id
+      WHERE ugl.user_id = $1
+      GROUP BY g.name
+      ORDER BY count DESC
+      LIMIT 5
+    `,
+      [userId]
+    );
+
+    // Get recently completed games
+    const { rows: recentlyCompleted } = await pool.query(
+      `
+      SELECT g.title, ugl.completed_at
+      FROM user_game_lists ugl
+      JOIN games g ON ugl.game_id = g.id
+      WHERE ugl.user_id = $1 AND ugl.status = 'completed' AND ugl.completed_at IS NOT NULL
+      ORDER BY ugl.completed_at DESC
+      LIMIT 5
+    `,
+      [userId]
+    );
+
+    // Format response
+    const stats = {
+      total_games: parseInt(basicStats[0].total_games) || 0,
+      average_rating: basicStats[0].average_rating
+        ? parseFloat(basicStats[0].average_rating)
+        : null,
+      reviews_written: parseInt(reviewStats[0].reviews_written) || 0,
+      achievements_unlocked:
+        parseInt(achievementStats[0].achievements_unlocked) || 0,
+      favorite_genres: favoriteGenres,
+      recently_completed: recentlyCompleted,
+      day_streak: 0, // TODO: Implement streak calculation
+      ...Object.fromEntries(
+        gameCounts.map(({ status, count }) => [status, parseInt(count)])
+      ),
+    };
+
+    res.json(stats);
+  } catch (e) {
+    console.error("Failed to fetch stats:", e);
+    res.status(500).json({ error: "Failed to fetch statistics" });
+  }
+});
+
+// Get statistics for a specific user
+app.get("/api/users/:userId/stats", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get game counts by status
+    const { rows: gameCounts } = await pool.query(
+      `
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM user_game_lists
+      WHERE user_id = $1
+      GROUP BY status
+    `,
+      [userId]
+    );
+
+    // Get total games and average rating
+    const { rows: basicStats } = await pool.query(
+      `
+      SELECT 
+        COUNT(*) as total_games,
+        AVG(rating) as average_rating
+      FROM user_game_lists
+      WHERE user_id = $1
+    `,
+      [userId]
+    );
+
+    // Get review count
+    const { rows: reviewStats } = await pool.query(
+      `
+      SELECT COUNT(*) as reviews_written
+      FROM reviews
+      WHERE user_id = $1
+    `,
+      [userId]
+    );
+
+    // Get achievements count
+    const { rows: achievementStats } = await pool.query(
+      `
+      SELECT COUNT(*) as achievements_unlocked
+      FROM user_achievements
+      WHERE user_id = $1
+    `,
+      [userId]
+    );
+
+    // Get favorite genres
+    const { rows: favoriteGenres } = await pool.query(
+      `
+      SELECT g.name, COUNT(*) as count
+      FROM user_game_lists ugl
+      JOIN game_genres gg ON ugl.game_id = gg.game_id
+      JOIN genres g ON gg.genre_id = g.id
+      WHERE ugl.user_id = $1
+      GROUP BY g.name
+      ORDER BY count DESC
+      LIMIT 5
+    `,
+      [userId]
+    );
+
+    // Get recently completed games
+    const { rows: recentlyCompleted } = await pool.query(
+      `
+      SELECT g.title, ugl.completed_at
+      FROM user_game_lists ugl
+      JOIN games g ON ugl.game_id = g.id
+      WHERE ugl.user_id = $1 AND ugl.status = 'completed' AND ugl.completed_at IS NOT NULL
+      ORDER BY ugl.completed_at DESC
+      LIMIT 5
+    `,
+      [userId]
+    );
+
+    // Format response
+    const stats = {
+      total_games: parseInt(basicStats[0].total_games) || 0,
+      average_rating: basicStats[0].average_rating
+        ? parseFloat(basicStats[0].average_rating)
+        : null,
+      reviews_written: parseInt(reviewStats[0].reviews_written) || 0,
+      achievements_unlocked:
+        parseInt(achievementStats[0].achievements_unlocked) || 0,
+      favorite_genres: favoriteGenres,
+      recently_completed: recentlyCompleted,
+      day_streak: 0,
+      ...Object.fromEntries(
+        gameCounts.map(({ status, count }) => [status, parseInt(count)])
+      ),
+    };
+
+    res.json(stats);
+  } catch (e) {
+    console.error("Failed to fetch user stats:", e);
+    res.status(500).json({ error: "Failed to fetch statistics" });
   }
 });
 
 // ========== ACHIEVEMENTS ROUTES ==========
 
 // Get all achievements
-app.get('/api/achievements', async (_req, res) => {
+app.get("/api/achievements", async (_req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM achievements ORDER BY category, points');
+    const { rows } = await pool.query(
+      "SELECT * FROM achievements ORDER BY category, points"
+    );
     res.json(rows);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Failed to fetch achievements' });
+    res.status(500).json({ error: "Failed to fetch achievements" });
   }
 });
 
 // Get user's achievements
-app.get('/api/users/:userId/achievements', async (req, res) => {
+app.get("/api/users/:userId/achievements", async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT a.*, ua.unlocked_at
@@ -922,12 +1345,12 @@ app.get('/api/users/:userId/achievements', async (req, res) => {
     res.json(rows);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Failed to fetch user achievements' });
+    res.status(500).json({ error: "Failed to fetch user achievements" });
   }
 });
 
 // Get current user's achievements
-app.get('/api/my/achievements', requireAuth, async (req, res) => {
+app.get("/api/my/achievements", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT a.*, ua.unlocked_at
@@ -942,7 +1365,7 @@ app.get('/api/my/achievements', requireAuth, async (req, res) => {
     res.json(rows);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Failed to fetch achievements' });
+    res.status(500).json({ error: "Failed to fetch achievements" });
   }
 });
 
@@ -959,16 +1382,16 @@ async function checkAndAwardAchievements(userId) {
         (SELECT COALESCE(SUM(helpful_count), 0) FROM reviews WHERE user_id = $1) as helpful_reviews`,
       [userId]
     );
-    
+
     const userStats = stats.rows[0];
-    
+
     // Get all achievements
-    const achievements = await pool.query('SELECT * FROM achievements');
-    
+    const achievements = await pool.query("SELECT * FROM achievements");
+
     // Check each achievement
     for (const achievement of achievements.rows) {
       const statValue = userStats[achievement.requirement_type] || 0;
-      
+
       if (statValue >= achievement.requirement_count) {
         // Award achievement if not already awarded
         await pool.query(
@@ -980,48 +1403,65 @@ async function checkAndAwardAchievements(userId) {
       }
     }
   } catch (e) {
-    console.error('Failed to check achievements:', e);
+    console.error("Failed to check achievements:", e);
   }
 }
 
 // IGDB routes
 // IGDB: Trending list
-app.get('/api/igdb/trending', async (_req, res) => {
+app.get("/api/igdb/trending", async (_req, res) => {
   try {
     const data = await getTrendingGames();
     res.json(data);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'IGDB trending failed' });
+    res.status(500).json({ error: "IGDB trending failed" });
   }
 });
 
 // IGDB: By genre
-app.get('/api/igdb/genre/:name', async (req, res) => {
+app.get("/api/igdb/genre/:name", async (req, res) => {
   try {
     const data = await getByGenreName(req.params.name);
     res.json(data);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'IGDB genre failed' });
+    res.status(500).json({ error: "IGDB genre failed" });
   }
 });
 
 // IGDB: Single game details (for /games/:id in React)
-app.get('/api/igdb/games/:id', async (req, res) => {
+app.get("/api/igdb/games/:id", async (req, res) => {
   try {
     const game = await getGameById(req.params.id);
-    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (!game) return res.status(404).json({ error: "Not found" });
     res.json(game);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'IGDB game failed' });
+    res.status(500).json({ error: "IGDB game failed" });
   }
 });
 
-app.get('/api/health', async (_req, res) => {
+// IGDB: Search games
+app.get("/api/igdb/search", async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT NOW() AS time;');
+    const { q, limit } = req.query;
+    if (!q || q.trim().length < 2) {
+      return res
+        .status(400)
+        .json({ error: "Query must be at least 2 characters" });
+    }
+    const results = await searchGames(q, limit ? parseInt(limit) : 20);
+    res.json(results);
+  } catch (e) {
+    console.error("Search error:", e);
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
+app.get("/api/health", async (_req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT NOW() AS time;");
     res.json({ ok: true, time: rows[0].time });
   } catch (err) {
     console.error(err);
@@ -1030,17 +1470,17 @@ app.get('/api/health', async (_req, res) => {
 });
 
 // Example reset route
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.post('/api/reset', async (_req, res) => {
+app.post("/api/reset", async (_req, res) => {
   try {
-    const sql = fs.readFileSync(path.join(__dirname, 'queries.sql'), 'utf8');
+    const sql = fs.readFileSync(path.join(__dirname, "queries.sql"), "utf8");
     await pool.query(sql);
-    res.json({ ok: true, message: 'Database reset & seeded.' });
+    res.json({ ok: true, message: "Database reset & seeded." });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: err.message });

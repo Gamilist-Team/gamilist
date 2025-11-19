@@ -10,6 +10,8 @@
   --max:1200px;
   --card-w:180px;
   --hero-ratio:16 / 5;
+  --panel: #16161a;
+  --border: #242433;
 }
 
 /* global reset */
