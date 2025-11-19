@@ -4,12 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
+    "dev": "vite",                         
+    "build": "vite build",               
     "preview": "vite preview",
-    "api": "node -r dotenv/config api/server.js",
-    "start": "nodemon --exec node -r dotenv/config api/server.js"
+    "lint": "eslint .",
+    "api": "node -r dotenv/config api/server.js",      
+    "dev:api": "nodemon -r dotenv/config api/server.js", 
+    "start": "node api/server.js",
+    "render-build": "npm run build"       
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -17,7 +19,6 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "express-session": "^1.18.2",
-    "nodemon": "^3.1.11",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
     "pg": "^8.16.3",
@@ -34,6 +35,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "vite": "^7.2.2"
+    "vite": "^7.2.2",
+    "nodemon": "^3.1.11"
   }
 }

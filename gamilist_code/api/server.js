@@ -1,4 +1,5 @@
 // api/server.js
+// api/server.js
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -7,6 +8,9 @@ import passport from "passport";
 import { Strategy as GitHubStrategy } from "passport-github2";
 import bcrypt from "bcrypt";
 import { Pool } from "pg";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   getTrendingGames,
   getByGenreName,
@@ -14,13 +18,17 @@ import {
   searchGames,
 } from "./igdb.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: process.env.FRONTEND_URL || true,  // reflect request origin if not set
     credentials: true,
   })
 );
+
 app.use(express.json());
 app.use(
   session({
@@ -157,7 +165,6 @@ app.get("/api/threads", async (_req, res) => {
 });
 
 // Routes
-app.get("/", (_req, res) => res.send("✅ Gamilist API is running locally"));
 
 // ========== AUTHENTICATION ROUTES ==========
 
@@ -1470,11 +1477,6 @@ app.get("/api/health", async (_req, res) => {
 });
 
 // Example reset route
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 app.post("/api/reset", async (_req, res) => {
   try {
@@ -1485,6 +1487,17 @@ app.post("/api/reset", async (_req, res) => {
     console.error(err);
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+// --- serve React build in production ---
+const distPath = path.join(__dirname, "..", "dist");
+
+// static files (JS, CSS, images)
+app.use(express.static(distPath));
+
+// SPA fallback: any non-API route -> index.html
+app.get("*", (req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
 });
 
 // Listen
