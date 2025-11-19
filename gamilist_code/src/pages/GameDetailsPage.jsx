@@ -92,7 +92,7 @@ export default function GameDetailsPage() {
           )}
 
           {/* Game Info */}
-          <div style={{ flex: 1, minWidth: '300px' }}>
+          <div style={{ flex: 1 }}>
             <h1 style={{ marginBottom: '1rem' }}>{game.title}</h1>
             
             {game.rating && (
