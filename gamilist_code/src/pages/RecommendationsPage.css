@@ -2,6 +2,7 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
+  min-height: calc(100vh - 80px);
 }
 
 .recommendations-header {
@@ -12,29 +13,30 @@
 .recommendations-header h1 {
   margin: 0 0 0.5rem 0;
   font-size: 2.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text);
 }
 
 .recommendations-header p {
   margin: 0;
-  color: #888;
+  color: var(--muted);
   font-size: 1.1rem;
 }
 
 .loading {
   text-align: center;
   padding: 3rem;
-  color: #888;
+  color: var(--muted);
   font-size: 1.2rem;
 }
 
 .based-on-section {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    rgba(118, 75, 162, 0.1) 100%
+  );
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 1.5rem;
   margin-bottom: 2rem;
 }
@@ -42,7 +44,79 @@
 .based-on-section h3 {
   margin: 0 0 1rem 0;
   font-size: 1.2rem;
-  color: #667eea;
+  color: var(--primary);
+}
+
+.genre-filters {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  padding: 1rem;
+  background: var(--panel);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.genre-filter-btn {
+  padding: 0.6rem 1.2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.genre-filter-btn:hover {
+  background: var(--panel);
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.genre-filter-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.recommendations-count {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.demo-ribbon {
+  position: absolute;
+  top: 15px;
+  left: -35px;
+  background: var(--accent);
+  color: white;
+  padding: 0.4rem 3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  transform: rotate(-45deg);
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.game-genres {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.genre-tag {
+  padding: 0.3rem 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .based-on-content {
@@ -91,7 +165,7 @@
 }
 
 .game-name:not(:last-child)::after {
-  content: '•';
+  content: "•";
   margin-left: 0.5rem;
   color: #555;
 }
@@ -155,17 +229,18 @@
 }
 
 .recommendation-card {
-  background: #1e1e1e;
-  border: 1px solid #2d2d2d;
-  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
   transition: all 0.3s;
+  position: relative;
 }
 
 .recommendation-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
-  border-color: #667eea;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+  border-color: var(--primary);
 }
 
 .game-cover {
@@ -291,4 +366,3 @@
     content: none !important;
   }
 }
-

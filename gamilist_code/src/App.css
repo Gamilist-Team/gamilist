@@ -10,6 +10,8 @@
   --max:1200px;
   --card-w:180px;
   --hero-ratio:16 / 5;
+  --panel: #16161a;
+  --border: #242433;
 }
 
 /* global reset */
@@ -66,7 +68,70 @@ a {
   gap:12px;
   margin-left:8px;
 }
+/* Enhanced Search Bar Styles */
+.search-bar-container {
+  flex: 1;
+  max-width: 500px;
+  position: relative;
+}
 
+.search-bar-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.search-bar-btn:hover {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+
+.search-bar-icon {
+  font-size: 1.1rem;
+}
+
+.search-bar-shortcut {
+  margin-left: auto;
+  padding: 2px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.theme-toggle:hover {
+  background: var(--surface);
+  border-color: var(--primary);
+  transform: rotate(20deg);
+}
+.mt-1 {
+  margin-top: 1rem;
+}
+.mt-2 {
+  margin-top: 2rem;
+}
 .hdr-actions {
   margin-left:auto;
   display:flex;
@@ -234,6 +299,42 @@ a {
 
 .track::-webkit-scrollbar-track {
   background:transparent;
+}
+
+
+/* Loading animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Improved focus states for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .card {

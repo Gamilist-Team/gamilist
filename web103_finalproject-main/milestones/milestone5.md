@@ -6,7 +6,7 @@ This document should be completed and submitted during **Unit 9** of this course
 
 This unit, be sure to complete all tasks listed below. To complete a task, place an `x` between the brackets.
 
-- [ ] Deploy your project on Render
+- [X] Deploy your project on Render
   - [ ] In `readme.md`, add the link to your deployed project
 - [x] Update the status of issues in your project board as you complete them
 - [x] In `readme.md`, check off the features you have completed in this unit by adding a ✅ emoji in front of their title
@@ -45,7 +45,7 @@ Complete the checklist below detailing each baseline, custom, and stretch featur
     - [x] Components broken down into categories, including Page and Component types (HomePage, GameCard, Hero, Carousel, ReviewSection, AchievementsSection)
     - [x] Corresponding container components and presenter components as appropriate
 - [x] The project includes dynamic routes for both frontend and backend apps
-- [ ] The project is deployed on Render with all pages and features that are visible to the user are working as intended
+- [X] The project is deployed on Render with all pages and features that are visible to the user are working as intended
 
 ### Custom Features
 
@@ -68,7 +68,7 @@ Complete the checklist below detailing each baseline, custom, and stretch featur
 - [x] A subset of pages require the user to log in before accessing the content
   - [x] Users can log in and log out via GitHub OAuth with Passport.js (profile page, recommendations page, forum posting require authentication)
 - [x] Restrict available user options dynamically, such as restricting available purchases based on a user's currency (users can only edit/delete their own forum posts and threads, games filtered from recommendations if already in user's list)
-- [ ] Show a spinner while a page or page element is loading
+- [X] Show a spinner while a page or page element is loading
 - [x] Disable buttons and inputs during the form submission process
 - [x] Disable buttons after they have been clicked (add to list buttons show "✓ Added" state and are disabled, form submit buttons disable during submission)
   - _At least 75% of buttons in your app must exhibit this behavior to receive full credit_
