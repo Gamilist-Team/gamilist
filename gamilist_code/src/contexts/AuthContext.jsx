@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:10000';
+const API = import.meta.env.VITE_API_URL || window.location.origin;
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -15,18 +15,32 @@ export function AuthProvider({ children }) {
   const checkAuth = async () => {
     try {
       const response = await fetch(`${API}/api/auth/me`, {
-        credentials: 'include'
+        credentials: 'include',
       });
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
+
+      if (response.status === 401) {
+        // Not logged in – this is normal, no error
+        setUser(null);
+        return;
       }
+
+      if (!response.ok) {
+        // Some other server error – log it but don't crash the app
+        const text = await response.text();
+        console.error('Auth check error:', response.status, text.slice(0, 120));
+        return;
+      }
+
+      const data = await response.json();
+      setUser(data.user);
     } catch (error) {
+      // Only network / fetch failures land here
       console.error('Auth check failed:', error);
     } finally {
       setLoading(false);
     }
   };
+
 
   const login = async (username, password) => {
     const response = await fetch(`${API}/api/auth/login`, {
