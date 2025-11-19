@@ -22,6 +22,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);   // trust Render's proxy
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || true,  // reflect request origin if not set
@@ -38,6 +39,7 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
+      sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
@@ -101,7 +103,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
                 profile.username || profile.displayName,
                 profile.emails?.[0]?.value || null,
                 profile.photos?.[0]?.value ||
-                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
+                `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
                 profile.username,
                 profile.id,
               ]
@@ -117,7 +119,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
                 profile.username || profile.displayName,
                 profile.emails?.[0]?.value || null,
                 profile.photos?.[0]?.value ||
-                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
+                `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
                 profile.id,
                 profile.username,
                 "",
