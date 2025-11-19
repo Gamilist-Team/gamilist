@@ -52,7 +52,7 @@ Complete the checklist below detailing each baseline, custom, and stretch featur
 👉🏾👉🏾👉🏾 Check off each completed feature below.
 
 - [x] The project gracefully handles errors (API error handling with try-catch, fallback game creation, user-friendly error messages)
-- [ ] The project includes a one-to-one database relationship
+- [X] The project includes a one-to-one database relationship
 - [ ] The project includes a slide-out pane or modal as appropriate for your use case that pops up and covers the page content without navigating away from the current page
 - [x] The project includes a unique field within the join table (user_game_lists has unique(user_id, game_id) constraint, reviews has unique(user_id, game_id) constraint)
 - [x] The project includes a custom non-RESTful route with corresponding controller actions (GET /api/my/recommendations generates personalized recommendations, GET /api/igdb/trending for IGDB data)

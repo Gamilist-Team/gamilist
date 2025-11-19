@@ -8,7 +8,7 @@ export default function HomePage() {
   const [trending, setTrending] = useState([]);
   const [adventure, setAdventure] = useState([]);
   const [threads, setThreads] = useState([]);
-  const [hoveredGame, setHoveredGame] = useState(null);
+  const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -20,11 +20,22 @@ export default function HomePage() {
       setTrending(t);
       setAdventure(a);
       setThreads(f.slice(0, 6));
+      setHeroIndex(0); // start from the first trending game
     })();
   }, []);
 
-  // Use hovered game if available, otherwise default to first trending game
-  const displayGame = hoveredGame || trending[0];
+  // autoplay through trending games
+  useEffect(() => {
+    if (!trending.length) return;
+
+    const interval = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % trending.length);
+    }, 7000); // 7 seconds per hero slide
+
+    return () => clearInterval(interval);
+  }, [trending]);
+
+  const displayGame = trending[heroIndex] || trending[0];
   const heroBg = displayGame?.hero || displayGame?.cover;
   const heroTitle = displayGame?.title;
 
@@ -43,13 +54,15 @@ export default function HomePage() {
             <Carousel
               title="Recommended Based on Your List"
               games={trending}
-              onGameHover={setHoveredGame}
+              viewAllHref="/games?filter=recommended"
             />
+
             <Carousel
               title="Trending"
               games={adventure}
-              onGameHover={setHoveredGame}
+              viewAllHref="/games?filter=trending"
             />
+
           </div>
 
           <ForumPreview threads={threads} />
