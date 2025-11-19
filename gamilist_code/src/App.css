@@ -420,6 +420,12 @@ select:focus-visible {
   min-width:0;
 }
 
+button:hover {
+  background: var(--panel);
+  border-color: var(--primary);
+  color: var(--text);
+}
+
 .panel {
   background:var(--surface);
   border:1px solid #242433;
@@ -430,7 +436,9 @@ select:focus-visible {
 .panel h3 {
   margin:0 0 12px;
 }
-
+.thread:hover{
+  color: var(--primary);
+}
 .list {
   display:grid;
   gap:12px;
@@ -513,7 +521,7 @@ select:focus-visible {
   .nav a {
     white-space:nowrap;
   }
-
+  
   .hdr-actions {
     margin-left:0;
     gap:6px;
