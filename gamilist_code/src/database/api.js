@@ -1,4 +1,7 @@
-const API = import.meta.env.VITE_API_URL || "";
+const API =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== "undefined" ? window.location.origin : "");
+
 
 async function request(url, options = {}) {
   const r = await fetch(url, {
