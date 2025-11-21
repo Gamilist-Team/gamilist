@@ -7,7 +7,7 @@ This document should be completed and submitted during **Unit 9** of this course
 This unit, be sure to complete all tasks listed below. To complete a task, place an `x` between the brackets.
 
 - [X] Deploy your project on Render
-  - [ ] In `readme.md`, add the link to your deployed project
+  - [X] In `readme.md`, add the link to your deployed project
 - [x] Update the status of issues in your project board as you complete them
 - [x] In `readme.md`, check off the features you have completed in this unit by adding a ✅ emoji in front of their title
   - [x] Under each feature you have completed, **include a GIF** showing feature functionality
@@ -80,8 +80,7 @@ Complete the checklist below detailing each baseline, custom, and stretch featur
 
 ## Final Demo GIF
 
-🔗 [Here's a GIF walkthrough of the final project](![alt text](<gamilist forU.gif>))
-
+🔗 [Here's a GIF walkthrough of the final project]![alt text](<../../gamilist forU.gif>)
 ## Reflection
 
 ### 1. What went well during this unit?

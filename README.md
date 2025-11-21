@@ -4,8 +4,8 @@ CodePath WEB103 Final Project
 
 Designed and developed by: Rashad, Jing, Rahat
 
-🔗 Link to deployed app: (To be deployed on Render)
-
+🔗 Link to deployed app: https://gamilist.onrender.com/
+![alt text](<gamilist full project.gif>)
 ## About
 
 ### Description and Purpose
