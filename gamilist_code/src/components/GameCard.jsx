@@ -45,17 +45,17 @@ export default function GameCard({ game, onHover }) {
         game_id: parseInt(game.id),
         status: "plan_to_play",
       });
-      setIsAdded(true);
 
-      // Show feedback
-      setTimeout(() => {
-        // Keep the checkmark visible
-      }, 1000);
+      setIsAdded(true);
+      // no need for a timeout unless you want to auto-reset later
     } catch (error) {
       console.error("Failed to add game:", error);
+    } finally {
+      // 🔥 this is the important line
       setIsAdding(false);
     }
   };
+
 
   return (
     <article
@@ -120,12 +120,12 @@ export default function GameCard({ game, onHover }) {
           ★{" "}
           {game.rating
             ? (() => {
-                const rating =
-                  typeof game.rating === "number"
-                    ? game.rating
-                    : parseFloat(game.rating);
-                return (rating > 10 ? rating / 10 : rating).toFixed(1);
-              })()
+              const rating =
+                typeof game.rating === "number"
+                  ? game.rating
+                  : parseFloat(game.rating);
+              return (rating > 10 ? rating / 10 : rating).toFixed(1);
+            })()
             : "N/A"}
         </div>
       </div>
